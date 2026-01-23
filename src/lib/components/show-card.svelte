@@ -298,7 +298,7 @@
         }}
       >
         <Popover.Trigger
-          class="inline-flex items-center justify-center h-9 px-4 text-sm font-medium gap-1.5 shadow-lg rounded-md bg-green-600 text-white hover:bg-green-500 transition-colors whitespace-nowrap"
+          class="inline-flex items-center justify-center h-9 px-4 text-sm font-medium gap-1.5 shadow-lg rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors whitespace-nowrap"
           onclick={(e: MouseEvent) => e.stopPropagation()}
         >
           <Plus class="w-4 h-4 shrink-0" />

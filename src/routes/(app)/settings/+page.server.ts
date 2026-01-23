@@ -1,9 +1,11 @@
 import type { PageServerLoad } from './$types';
 import { getUserSonarrConfigs } from '$lib/server/sonarr';
 import { getOMDBConfig } from '$lib/server/omdb';
+import { getUserSettings } from '$lib/server/user-settings';
 
 export const load: PageServerLoad = async ({ locals }) => {
   const sonarrConfigs = getUserSonarrConfigs(locals.user!.id);
+  const userSettings = getUserSettings(locals.user!.id);
 
   // Don't expose API keys
   const safeConfigs = sonarrConfigs.map((c) => ({
@@ -30,6 +32,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   return {
     sonarrConfigs: safeConfigs,
-    omdbConfig
+    omdbConfig,
+    userSettings: userSettings
+      ? {
+          primaryColorLight: userSettings.primary_color_light,
+          primaryColorDark: userSettings.primary_color_dark
+        }
+      : null
   };
 };

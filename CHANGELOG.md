@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-01-23
+
+### Added
+
+- **Custom Highlight Colors**
+  - New "Appearance" section in Settings
+  - Color picker for light mode highlight color
+  - Color picker for dark mode highlight color
+  - Quick preset colors: Blue, Green, Purple, Orange, Pink, Teal, Red, Default
+  - Live preview of color changes
+  - Colors persist per-user in the database
+  - Colors automatically apply on page load and when switching themes
+
 ## [0.2.1] - 2025-01-23
 
 ### Fixed
@@ -111,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shadcn-svelte UI components
 - Docker support with health checks
 
-[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/yourusername/fluxarr/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/yourusername/fluxarr/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yourusername/fluxarr/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yourusername/fluxarr/releases/tag/v0.1.0

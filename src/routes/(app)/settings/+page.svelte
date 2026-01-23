@@ -4,6 +4,7 @@
     type SettingsSection
   } from '$lib/components/settings/settings-sidebar.svelte';
   import ProfileSettings from '$lib/components/settings/profile-settings.svelte';
+  import AppearanceSettings from '$lib/components/settings/appearance-settings.svelte';
   import ConnectionsSettings from '$lib/components/settings/connections-settings.svelte';
   import JobsSettings from '$lib/components/settings/jobs-settings.svelte';
   import LogsSettings from '$lib/components/settings/logs-settings.svelte';
@@ -34,6 +35,11 @@
     <div class="flex-1 min-w-0">
       {#if activeSection === 'profile'}
         <ProfileSettings user={data.user} />
+      {:else if activeSection === 'appearance'}
+        <AppearanceSettings
+          initialLightColor={data.userSettings?.primaryColorLight}
+          initialDarkColor={data.userSettings?.primaryColorDark}
+        />
       {:else if activeSection === 'connections'}
         <ConnectionsSettings
           sonarrConfigs={data.sonarrConfigs}
