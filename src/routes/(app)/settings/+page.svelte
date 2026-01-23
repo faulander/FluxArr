@@ -4,7 +4,7 @@
     type SettingsSection
   } from '$lib/components/settings/settings-sidebar.svelte';
   import ProfileSettings from '$lib/components/settings/profile-settings.svelte';
-  import SonarrSettings from '$lib/components/settings/sonarr-settings.svelte';
+  import ConnectionsSettings from '$lib/components/settings/connections-settings.svelte';
   import JobsSettings from '$lib/components/settings/jobs-settings.svelte';
   import LogsSettings from '$lib/components/settings/logs-settings.svelte';
   import type { PageData } from './$types';
@@ -34,8 +34,12 @@
     <div class="flex-1 min-w-0">
       {#if activeSection === 'profile'}
         <ProfileSettings user={data.user} />
-      {:else if activeSection === 'sonarr'}
-        <SonarrSettings configs={data.sonarrConfigs} {isAdmin} />
+      {:else if activeSection === 'connections'}
+        <ConnectionsSettings
+          sonarrConfigs={data.sonarrConfigs}
+          omdbConfig={data.omdbConfig}
+          {isAdmin}
+        />
       {:else if activeSection === 'jobs'}
         <JobsSettings />
       {:else if activeSection === 'logs'}

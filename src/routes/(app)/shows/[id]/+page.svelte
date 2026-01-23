@@ -236,10 +236,27 @@
             <div class="flex flex-wrap items-center gap-3 mt-3">
               <Badge variant="outline" class={statusColor()}>{show.status}</Badge>
 
-              {#if show.rating_average}
-                <div class="flex items-center gap-1 text-sm">
-                  <Star class="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span class="font-medium">{show.rating_average.toFixed(1)}</span>
+              {#if show.imdb_rating || show.rating_average}
+                <div class="flex items-center gap-2 text-sm">
+                  {#if show.imdb_rating}
+                    <div class="flex items-center gap-1" title="IMDB Rating">
+                      <Star class="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <span class="font-medium">{show.imdb_rating.toFixed(1)}</span>
+                      <span class="text-xs text-muted-foreground">IMDB</span>
+                    </div>
+                  {/if}
+                  {#if show.imdb_rating && show.rating_average}
+                    <span class="text-muted-foreground">•</span>
+                  {/if}
+                  {#if show.rating_average}
+                    <div class="flex items-center gap-1" title="TVMaze Rating">
+                      <Star class="w-4 h-4 fill-gray-400 text-gray-400" />
+                      <span class="font-medium text-muted-foreground"
+                        >{show.rating_average.toFixed(1)}</span
+                      >
+                      <span class="text-xs text-muted-foreground">TVMaze</span>
+                    </div>
+                  {/if}
                 </div>
               {/if}
 

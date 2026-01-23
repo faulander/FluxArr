@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **IMDB Ratings via OMDB**
+  - OMDB API integration to fetch IMDB ratings for shows
+  - Configure OMDB API key in Settings → Connections (admin only)
+  - Test button to verify API key before saving
+  - IMDB ratings displayed on show cards (primary) and TVMaze ratings (secondary)
+  - Show detail pages display both ratings with labels
+  - Background sync fetches IMDB ratings for shows with IMDB IDs
+  - Manual IMDB sync available via `npm run sync -- --imdb`
+
+- **Connections Settings**
+  - New unified "Connections" section in settings
+  - Sonarr and OMDB configurations in one place
+
+- **Filter Improvements**
+  - "Include unrated shows" checkbox in rating filter
+  - Shows without ratings can now be included regardless of rating filter settings
+
+### Changed
+
+- Moved Sonarr settings from dedicated section to Connections
+- Rating badge on show cards now shows IMDB rating first (when available)
+
+### Fixed
+
+- Filter panel now properly syncs when editing saved filters
+- First air date filter works correctly with only "after" or "before" set
+- New Filter dialog on filters page now opens correctly
+
 ## [0.1.0] - 2025-01-23
 
 ### Added

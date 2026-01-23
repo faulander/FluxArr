@@ -228,15 +228,113 @@ function updateSyncStatus(
   totalShows?: number
 ): void {
   if (totalShows !== undefined) {
-    db.prepare(`UPDATE sync_status SET ${field} = datetime('now'), total_shows = ? WHERE id = 1`).run(
-      totalShows
-    );
+    db.prepare(
+      `UPDATE sync_status SET ${field} = datetime('now'), total_shows = ? WHERE id = 1`
+    ).run(totalShows);
   } else {
     db.prepare(`UPDATE sync_status SET ${field} = datetime('now') WHERE id = 1`).run();
   }
 }
 
-function setSyncing(syncing: boolean, progress?: { current: number; total: number; phase: string }): void {
+// OMDB/IMDB rating functions
+interface OMDBConfig {
+  api_key: string;
+  enabled: number;
+}
+
+interface OMDBResponse {
+  Response: 'True' | 'False';
+  Error?: string;
+  imdbRating?: string;
+}
+
+function getOMDBConfig(): OMDBConfig | null {
+  return db
+    .prepare('SELECT api_key, enabled FROM omdb_config WHERE id = 1')
+    .get() as OMDBConfig | null;
+}
+
+async function fetchIMDBRating(imdbId: string, apiKey: string): Promise<number | null> {
+  try {
+    const response = await fetch(`https://www.omdbapi.com/?apikey=${apiKey}&i=${imdbId}`);
+    const data: OMDBResponse = await response.json();
+
+    if (data.Response === 'True' && data.imdbRating && data.imdbRating !== 'N/A') {
+      const rating = parseFloat(data.imdbRating);
+      return isNaN(rating) ? null : rating;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function syncIMDBRatings(
+  batchSize: number = 100
+): Promise<{ updated: number; errors: number }> {
+  const config = getOMDBConfig();
+
+  if (!config || !config.enabled || !config.api_key) {
+    console.log('OMDB not configured or disabled, skipping IMDB ratings sync');
+    return { updated: 0, errors: 0 };
+  }
+
+  console.log('Starting IMDB ratings sync...');
+  setSyncing(true, { current: 0, total: 0, phase: 'imdb' });
+
+  // Get shows with IMDB ID but no IMDB rating
+  const shows = db
+    .prepare(
+      `
+    SELECT id, imdb_id FROM shows
+    WHERE imdb_id IS NOT NULL
+    AND imdb_id != ''
+    AND imdb_rating IS NULL
+    LIMIT ?
+  `
+    )
+    .all(batchSize) as { id: number; imdb_id: string }[];
+
+  if (shows.length === 0) {
+    console.log('No shows need IMDB ratings');
+    return { updated: 0, errors: 0 };
+  }
+
+  console.log(`Fetching IMDB ratings for ${shows.length} shows...`);
+
+  let updated = 0;
+  let errors = 0;
+
+  const updateStmt = db.prepare('UPDATE shows SET imdb_rating = ? WHERE id = ?');
+
+  for (let i = 0; i < shows.length; i++) {
+    const show = shows[i];
+    const rating = await fetchIMDBRating(show.imdb_id, config.api_key);
+
+    if (rating !== null) {
+      updateStmt.run(rating, show.id);
+      updated++;
+    } else {
+      errors++;
+    }
+
+    if ((i + 1) % 10 === 0) {
+      console.log(`IMDB progress: ${i + 1}/${shows.length} (${updated} updated, ${errors} errors)`);
+      setSyncing(true, { current: i + 1, total: shows.length, phase: 'imdb' });
+    }
+
+    // Rate limiting: OMDB free tier is 1000/day, add 100ms delay
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  console.log(`IMDB ratings sync complete. Updated: ${updated}, Errors: ${errors}`);
+  return { updated, errors };
+}
+
+function setSyncing(
+  syncing: boolean,
+  progress?: { current: number; total: number; phase: string }
+): void {
   db.prepare('UPDATE sync_status SET is_syncing = ?, sync_progress = ? WHERE id = 1').run(
     syncing ? 1 : 0,
     progress ? JSON.stringify(progress) : null
@@ -314,6 +412,7 @@ async function incrementalSync(): Promise<void> {
 // Main
 async function main(): Promise<void> {
   const forceFullSync = process.argv.includes('--full');
+  const imdbOnly = process.argv.includes('--imdb');
 
   try {
     // Run migrations first
@@ -330,16 +429,26 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
-    if (forceFullSync || !status?.last_full_sync) {
-      await fullSync();
+    if (imdbOnly) {
+      // Only sync IMDB ratings
+      await syncIMDBRatings(500);
     } else {
-      await incrementalSync();
+      // TVMaze sync
+      if (forceFullSync || !status?.last_full_sync) {
+        await fullSync();
+      } else {
+        await incrementalSync();
+      }
+
+      // Sync IMDB ratings after TVMaze sync (100 per run to stay within rate limits)
+      await syncIMDBRatings(100);
     }
   } catch (error) {
     console.error('Sync failed:', error);
     setSyncing(false);
     process.exit(1);
   } finally {
+    setSyncing(false);
     db.close();
   }
 }

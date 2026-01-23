@@ -69,12 +69,24 @@
       {/if}
 
       <!-- Rating badge -->
-      {#if show.rating_average}
+      {#if show.rating_average || show.imdb_rating}
         <div
-          class="absolute top-2 right-2 flex items-center gap-1 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded"
+          class="absolute top-2 right-2 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded"
         >
-          <Star class="w-3 h-3 fill-yellow-400 text-yellow-400" />
-          {show.rating_average.toFixed(1)}
+          {#if show.imdb_rating}
+            <span class="flex items-center gap-0.5" title="IMDB Rating">
+              <Star class="w-3 h-3 fill-yellow-400 text-yellow-400" />
+              {show.imdb_rating.toFixed(1)}
+            </span>
+          {/if}
+          {#if show.imdb_rating && show.rating_average}
+            <span class="text-white/40">|</span>
+          {/if}
+          {#if show.rating_average}
+            <span class="flex items-center gap-0.5 text-white/70" title="TVMaze Rating">
+              {show.rating_average.toFixed(1)}
+            </span>
+          {/if}
         </div>
       {/if}
 

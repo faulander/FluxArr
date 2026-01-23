@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getUserSonarrConfigs } from '$lib/server/sonarr';
+import { getOMDBConfig } from '$lib/server/omdb';
 
 export const load: PageServerLoad = async ({ locals }) => {
   const sonarrConfigs = getUserSonarrConfigs(locals.user!.id);
@@ -15,7 +16,20 @@ export const load: PageServerLoad = async ({ locals }) => {
     isShared: c.user_id === null
   }));
 
+  // Get OMDB config (mask API key)
+  const omdbConfigRaw = getOMDBConfig();
+  const omdbConfig = omdbConfigRaw
+    ? {
+        configured: true,
+        enabled: omdbConfigRaw.enabled === 1,
+        apiKeyMasked: omdbConfigRaw.api_key
+          ? `${omdbConfigRaw.api_key.slice(0, 4)}${'*'.repeat(4)}`
+          : null
+      }
+    : { configured: false, enabled: false, apiKeyMasked: null };
+
   return {
-    sonarrConfigs: safeConfigs
+    sonarrConfigs: safeConfigs,
+    omdbConfig
   };
 };

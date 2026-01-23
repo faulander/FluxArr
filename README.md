@@ -15,6 +15,7 @@ FluxArr pulls TV show data from TVMaze and presents it in a beautiful, searchabl
 - Search by title to quickly find what you're looking for
 - Filter by genre, language, status, network, rating, premiere date, and more
 - Use include/exclude filters for precise control over search results
+- IMDB ratings displayed alongside TVMaze ratings (via OMDB API)
 
 ### Multi-Sonarr Support
 - Connect multiple Sonarr instances (e.g., one for English content, one for German)
@@ -93,13 +94,28 @@ AUTH_SECRET="your-secret-key-here"
 
 ### Connecting Sonarr
 
-1. Go to **Settings → Sonarr**
-2. Click **Add**
+1. Go to **Settings → Connections**
+2. Click **Add** in the Sonarr section
 3. Enter your Sonarr URL (e.g., `http://localhost:8989`)
 4. Enter your API key (found in Sonarr → Settings → General → Security)
 5. Test the connection and save
 
 You can add multiple Sonarr instances and set one as the default.
+
+### IMDB Ratings (OMDB)
+
+FluxArr can display IMDB ratings alongside TVMaze ratings by connecting to the OMDB API.
+
+1. Get a free API key at [omdbapi.com](https://www.omdbapi.com/apikey.aspx) (1,000 requests/day)
+2. Go to **Settings → Connections** (admin only)
+3. Click **Configure** in the OMDB section
+4. Enter your API key and test the connection
+5. Save - IMDB ratings will be fetched during the next sync
+
+You can also run a dedicated IMDB sync:
+```bash
+npm run sync -- --imdb
+```
 
 ## Data Sync
 

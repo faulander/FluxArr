@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { User, Server, Clock, FileText } from '@lucide/svelte';
+  import { User, Cable, Clock, FileText } from '@lucide/svelte';
   import { cn } from '$lib/utils';
 
-  export type SettingsSection = 'profile' | 'sonarr' | 'jobs' | 'logs';
+  export type SettingsSection = 'profile' | 'connections' | 'jobs' | 'logs';
 
   interface NavItem {
     id: SettingsSection;
@@ -21,7 +21,7 @@
 
   const navItems: NavItem[] = [
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'sonarr', label: 'Sonarr', icon: Server },
+    { id: 'connections', label: 'Connections', icon: Cable },
     { id: 'jobs', label: 'Background Jobs', icon: Clock, adminOnly: true },
     { id: 'logs', label: 'Logs', icon: FileText, adminOnly: true }
   ];

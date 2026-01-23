@@ -85,6 +85,7 @@ export interface Show {
   schedule_time: string | null;
   schedule_days: string | null; // JSON array stored as string
   rating_average: number | null;
+  imdb_rating: number | null;
   weight: number | null;
   network_id: number | null;
   network_name: string | null;
@@ -136,6 +137,7 @@ export function tvMazeToDbShow(show: TVMazeShow): Omit<Show, 'synced_at'> {
     schedule_time: show.schedule.time || null,
     schedule_days: JSON.stringify(show.schedule.days),
     rating_average: show.rating.average,
+    imdb_rating: null, // Synced separately from OMDB
     weight: show.weight,
     network_id: show.network?.id || null,
     network_name: show.network?.name || null,
