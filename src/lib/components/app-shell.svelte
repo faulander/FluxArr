@@ -8,6 +8,7 @@
   import * as Sheet from '$lib/components/ui/sheet';
   import { cn } from '$lib/utils';
   import type { User } from '$lib/types';
+  import { VERSION } from '$lib/version';
 
   interface Props {
     user: User;
@@ -208,4 +209,15 @@
   <main class="flex-1">
     {@render children()}
   </main>
+
+  <!-- Footer -->
+  <footer class="border-t py-4 px-4">
+    <div class="flex items-center justify-between text-xs text-muted-foreground">
+      <div class="flex items-center gap-1">
+        <Tv class="h-3 w-3" />
+        <span>FluxArr</span>
+      </div>
+      <span>v{VERSION}</span>
+    </div>
+  </footer>
 </div>

@@ -1,0 +1,8 @@
+// Semantic Versioning (https://semver.org)
+// MAJOR.MINOR.PATCH
+// - MAJOR: incompatible API changes
+// - MINOR: backwards compatible functionality additions
+// - PATCH: backwards compatible bug fixes
+
+export const VERSION = '0.1.0';
+export const VERSION_NAME = 'Initial Release';

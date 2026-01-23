@@ -173,6 +173,63 @@ docker run -p 3000:3000 myapp
 
 The Dockerfile uses multi-stage builds for optimal image size and includes a health check at `/api/health`.
 
+## Versioning
+
+This project follows [Semantic Versioning](https://semver.org/) (SemVer):
+
+- **MAJOR** version for incompatible API changes
+- **MINOR** version for backwards compatible functionality additions
+- **PATCH** version for backwards compatible bug fixes
+
+### Version Files
+
+The version is defined in multiple places that must stay in sync:
+
+- `src/lib/version.ts` - Central version constant used by the app
+- `package.json` - npm package version
+- `CHANGELOG.md` - Version history and release notes
+
+### Updating Version
+
+When releasing a new version:
+
+1. Update `VERSION` in `src/lib/version.ts`
+2. Update `version` in `package.json`
+3. Add new section to `CHANGELOG.md` following Keep a Changelog format
+4. Commit with message: `chore: bump version to X.Y.Z`
+5. Tag the release: `git tag vX.Y.Z`
+
+### Version Display
+
+- **UI:** Version shown in app footer (all pages)
+- **API:** Version included in `/api/health` endpoint response
+
+### Changelog Format
+
+Follow [Keep a Changelog](https://keepachangelog.com/) format:
+
+```markdown
+## [X.Y.Z] - YYYY-MM-DD
+
+### Added
+- New features
+
+### Changed
+- Changes in existing functionality
+
+### Deprecated
+- Soon-to-be removed features
+
+### Removed
+- Removed features
+
+### Fixed
+- Bug fixes
+
+### Security
+- Vulnerability fixes
+```
+
 ## Settings Page Structure
 
 The settings page uses a sidebar navigation pattern with each settings topic in its own component to keep files short and maintainable:
