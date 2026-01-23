@@ -1,0 +1,23 @@
+<script lang="ts">
+  import type { HTMLAttributes } from 'svelte/elements';
+  import type { Snippet } from 'svelte';
+  import { cn } from '$lib/utils.js';
+
+  let {
+    ref = $bindable(null),
+    class: className,
+    children,
+    ...restProps
+  }: HTMLAttributes<HTMLDivElement> & {
+    ref?: HTMLDivElement | null;
+    children?: Snippet;
+  } = $props();
+</script>
+
+<div
+  bind:this={ref}
+  class={cn('flex flex-col space-y-2 text-center sm:text-left', className)}
+  {...restProps}
+>
+  {@render children?.()}
+</div>

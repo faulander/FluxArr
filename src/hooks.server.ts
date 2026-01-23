@@ -1,6 +1,7 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { getSession } from '$lib/server/auth';
 import { migrate } from '$lib/server/db';
+import { startBackgroundJobs } from '$lib/server/background-jobs';
 
 // Run migrations on startup
 try {
@@ -9,6 +10,9 @@ try {
 } catch (error) {
   console.error('Migration failed:', error);
 }
+
+// Start background jobs (Sonarr library sync, etc.)
+startBackgroundJobs();
 
 export const handle: Handle = async ({ event, resolve }) => {
   const start = performance.now();

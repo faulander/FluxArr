@@ -23,7 +23,10 @@
   let currentPage = $state(1);
   let isLoading = $state(false);
   let hasMore = $state(data.shows.length < data.total);
-  let loadMoreTrigger: HTMLDivElement;
+  let loadMoreTrigger = $state<HTMLDivElement | null>(null);
+
+  // Sonarr library lookup - create Set for O(1) lookup
+  const sonarrTvdbSet = $derived(new Set(data.sonarrTvdbIds || []));
 
   // Reset shows when URL changes (search/filter)
   $effect(() => {
@@ -284,7 +287,7 @@
   {:else}
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
       {#each shows as show (show.id)}
-        <ShowCard {show} />
+        <ShowCard {show} inSonarr={show.thetvdb_id ? sonarrTvdbSet.has(show.thetvdb_id) : false} />
       {/each}
     </div>
 

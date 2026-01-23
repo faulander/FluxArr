@@ -1,7 +1,219 @@
 <script lang="ts">
-  import { Filter, Plus, Trash2, Star } from '@lucide/svelte';
+  import { goto } from '$app/navigation';
+  import { toast } from 'svelte-sonner';
+  import { Filter, Plus, Trash2, Star, Pencil, Play, Loader2 } from '@lucide/svelte';
   import * as Card from '$lib/components/ui/card';
+  import * as Dialog from '$lib/components/ui/dialog';
+  import * as AlertDialog from '$lib/components/ui/alert-dialog';
   import { Button } from '$lib/components/ui/button';
+  import { Input } from '$lib/components/ui/input';
+  import { Label } from '$lib/components/ui/label';
+  import { Badge } from '$lib/components/ui/badge';
+  import { Separator } from '$lib/components/ui/separator';
+  import FilterPanel from '$lib/components/filter-panel.svelte';
+  import type { PageData } from './$types';
+  import type { FilterConfig, SavedFilter } from '$lib/types/filter';
+
+  let { data }: { data: PageData } = $props();
+
+  let filters = $state<SavedFilter[]>(data.filters);
+
+  // Dialog state
+  let createDialogOpen = $state(false);
+  let editDialogOpen = $state(false);
+  let deleteDialogOpen = $state(false);
+
+  // Form state
+  let filterName = $state('');
+  let filterConfig = $state<FilterConfig>({ include: {}, exclude: {} });
+  let isDefault = $state(false);
+  let isSaving = $state(false);
+  let editingFilter = $state<SavedFilter | null>(null);
+  let deletingFilter = $state<SavedFilter | null>(null);
+
+  function resetForm() {
+    filterName = '';
+    filterConfig = { include: {}, exclude: {} };
+    isDefault = false;
+    editingFilter = null;
+  }
+
+  function openEditDialog(filter: SavedFilter) {
+    editingFilter = filter;
+    filterName = filter.name;
+    filterConfig = JSON.parse(filter.config);
+    isDefault = filter.is_default === 1;
+    editDialogOpen = true;
+  }
+
+  function openDeleteDialog(filter: SavedFilter) {
+    deletingFilter = filter;
+    deleteDialogOpen = true;
+  }
+
+  async function createFilter() {
+    if (!filterName.trim()) {
+      toast.error('Please enter a filter name');
+      return;
+    }
+
+    isSaving = true;
+
+    try {
+      const response = await fetch('/api/filters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: filterName.trim(),
+          config: filterConfig,
+          isDefault
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error || 'Failed to create filter');
+        return;
+      }
+
+      // Update local state
+      if (isDefault) {
+        filters = filters.map((f) => ({ ...f, is_default: 0 }));
+      }
+      filters = [...filters, result.filter];
+
+      toast.success('Filter created');
+      createDialogOpen = false;
+      resetForm();
+    } catch (error) {
+      toast.error('Failed to create filter');
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  async function updateFilter() {
+    if (!editingFilter) return;
+    if (!filterName.trim()) {
+      toast.error('Please enter a filter name');
+      return;
+    }
+
+    isSaving = true;
+
+    try {
+      const response = await fetch(`/api/filters/${editingFilter.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: filterName.trim(),
+          config: filterConfig,
+          isDefault
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error || 'Failed to update filter');
+        return;
+      }
+
+      // Update local state
+      if (isDefault) {
+        filters = filters.map((f) => ({ ...f, is_default: f.id === editingFilter!.id ? 1 : 0 }));
+      }
+      filters = filters.map((f) => (f.id === editingFilter!.id ? result.filter : f));
+
+      toast.success('Filter updated');
+      editDialogOpen = false;
+      resetForm();
+    } catch (error) {
+      toast.error('Failed to update filter');
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  async function deleteFilter() {
+    if (!deletingFilter) return;
+
+    try {
+      const response = await fetch(`/api/filters/${deletingFilter.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        toast.error(result.error || 'Failed to delete filter');
+        return;
+      }
+
+      filters = filters.filter((f) => f.id !== deletingFilter!.id);
+      toast.success('Filter deleted');
+      deleteDialogOpen = false;
+      deletingFilter = null;
+    } catch (error) {
+      toast.error('Failed to delete filter');
+    }
+  }
+
+  async function setAsDefault(filter: SavedFilter) {
+    try {
+      const response = await fetch(`/api/filters/${filter.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDefault: true })
+      });
+
+      if (!response.ok) {
+        toast.error('Failed to set default filter');
+        return;
+      }
+
+      filters = filters.map((f) => ({ ...f, is_default: f.id === filter.id ? 1 : 0 }));
+      toast.success('Default filter updated');
+    } catch (error) {
+      toast.error('Failed to set default filter');
+    }
+  }
+
+  function applyFilter(filter: SavedFilter) {
+    const config = JSON.parse(filter.config);
+    const params = new URLSearchParams();
+    params.set('filter', JSON.stringify(config));
+    goto(`/shows?${params.toString()}`);
+  }
+
+  function getFilterSummary(filter: SavedFilter): string[] {
+    const config = JSON.parse(filter.config) as FilterConfig;
+    const parts: string[] = [];
+
+    if (config.include.languages?.length) {
+      parts.push(`Language: ${config.include.languages.join(', ')}`);
+    }
+    if (config.include.genres?.length) {
+      parts.push(`+Genres: ${config.include.genres.join(', ')}`);
+    }
+    if (config.exclude.genres?.length) {
+      parts.push(`-Genres: ${config.exclude.genres.join(', ')}`);
+    }
+    if (config.include.status?.length) {
+      parts.push(`Status: ${config.include.status.join(', ')}`);
+    }
+    if (config.include.ratingMin !== undefined) {
+      parts.push(`Rating: ${config.include.ratingMin}+`);
+    }
+    if (config.include.premieredAfter) {
+      parts.push(`After: ${config.include.premieredAfter}`);
+    }
+    if (config.include.premieredBefore) {
+      parts.push(`Before: ${config.include.premieredBefore}`);
+    }
+
+    return parts.length > 0 ? parts : ['No filters configured'];
+  }
 </script>
 
 <div class="container mx-auto px-4 py-6 max-w-4xl space-y-6">
@@ -10,22 +222,180 @@
       <h1 class="text-2xl font-bold">Saved Filters</h1>
       <p class="text-muted-foreground text-sm">Create and manage your filter presets</p>
     </div>
-    <Button class="gap-2">
-      <Plus class="w-4 h-4" />
-      New Filter
-    </Button>
+    <!-- Create Filter Dialog with Trigger -->
+    <Dialog.Root
+      bind:open={createDialogOpen}
+      onOpenChange={(open) => {
+        if (open) resetForm();
+      }}
+    >
+      <Dialog.Trigger>
+        {#snippet child({ props })}
+          <Button {...props} class="gap-2">
+            <Plus class="w-4 h-4" />
+            New Filter
+          </Button>
+        {/snippet}
+      </Dialog.Trigger>
+      <Dialog.Content class="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <Dialog.Header>
+          <Dialog.Title>Create New Filter</Dialog.Title>
+          <Dialog.Description>
+            Configure your filter settings and save them for quick access.
+          </Dialog.Description>
+        </Dialog.Header>
+
+        <div class="space-y-4 py-4">
+          <div class="space-y-2">
+            <Label for="filter-name">Filter Name</Label>
+            <Input id="filter-name" bind:value={filterName} placeholder="My Filter" />
+          </div>
+
+          <Separator />
+
+          <FilterPanel
+            options={data.filterOptions}
+            filter={filterConfig}
+            onApply={(config) => (filterConfig = config)}
+            onClear={() => (filterConfig = { include: {}, exclude: {} })}
+            showButtons={false}
+            autoApply={true}
+          />
+        </div>
+
+        <Dialog.Footer>
+          <Button variant="outline" onclick={() => (createDialogOpen = false)}>Cancel</Button>
+          <Button onclick={createFilter} disabled={isSaving}>
+            {#if isSaving}
+              <Loader2 class="w-4 h-4 mr-2 animate-spin" />
+              Creating...
+            {:else}
+              Create Filter
+            {/if}
+          </Button>
+        </Dialog.Footer>
+      </Dialog.Content>
+    </Dialog.Root>
   </div>
 
-  <Card.Root>
-    <Card.Content class="py-12 text-center">
-      <Filter class="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-      <h3 class="text-lg font-medium">No saved filters yet</h3>
-      <p class="text-muted-foreground text-sm mt-1">
-        Create filters from the Discover page and save them here for quick access.
-      </p>
-      <Button variant="outline" class="mt-4" href="/shows">
-        Go to Discover
-      </Button>
-    </Card.Content>
-  </Card.Root>
+  {#if filters.length === 0}
+    <Card.Root>
+      <Card.Content class="py-12 text-center">
+        <Filter class="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+        <h3 class="text-lg font-medium">No saved filters yet</h3>
+        <p class="text-muted-foreground text-sm mt-1">
+          Create filter presets to quickly apply your favorite filter combinations.
+        </p>
+        <Button class="mt-4 gap-2" onclick={() => (createDialogOpen = true)}>
+          <Plus class="w-4 h-4" />
+          Create Your First Filter
+        </Button>
+      </Card.Content>
+    </Card.Root>
+  {:else}
+    <div class="grid gap-4">
+      {#each filters as filter (filter.id)}
+        <Card.Root>
+          <Card.Content class="p-4">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 class="font-semibold truncate">{filter.name}</h3>
+                  {#if filter.is_default}
+                    <Badge variant="secondary" class="gap-1">
+                      <Star class="w-3 h-3 fill-current" />
+                      Default
+                    </Badge>
+                  {/if}
+                </div>
+                <div class="flex flex-wrap gap-1.5 mt-2">
+                  {#each getFilterSummary(filter) as part}
+                    <Badge variant="outline" class="text-xs">{part}</Badge>
+                  {/each}
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onclick={() => applyFilter(filter)}
+                  class="gap-1"
+                >
+                  <Play class="w-3 h-3" />
+                  Apply
+                </Button>
+                <Button variant="ghost" size="icon" onclick={() => openEditDialog(filter)}>
+                  <Pencil class="w-4 h-4" />
+                </Button>
+                {#if !filter.is_default}
+                  <Button variant="ghost" size="icon" onclick={() => setAsDefault(filter)}>
+                    <Star class="w-4 h-4" />
+                  </Button>
+                {/if}
+                <Button variant="ghost" size="icon" onclick={() => openDeleteDialog(filter)}>
+                  <Trash2 class="w-4 h-4 text-destructive" />
+                </Button>
+              </div>
+            </div>
+          </Card.Content>
+        </Card.Root>
+      {/each}
+    </div>
+  {/if}
 </div>
+
+<!-- Edit Filter Dialog -->
+<Dialog.Root bind:open={editDialogOpen}>
+  <Dialog.Content class="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog.Header>
+      <Dialog.Title>Edit Filter</Dialog.Title>
+      <Dialog.Description>Update your filter settings.</Dialog.Description>
+    </Dialog.Header>
+
+    <div class="space-y-4 py-4">
+      <div class="space-y-2">
+        <Label for="edit-filter-name">Filter Name</Label>
+        <Input id="edit-filter-name" bind:value={filterName} placeholder="My Filter" />
+      </div>
+
+      <Separator />
+
+      <FilterPanel
+        options={data.filterOptions}
+        filter={filterConfig}
+        onApply={(config) => (filterConfig = config)}
+        onClear={() => (filterConfig = { include: {}, exclude: {} })}
+        showButtons={false}
+        autoApply={true}
+      />
+    </div>
+
+    <Dialog.Footer>
+      <Button variant="outline" onclick={() => (editDialogOpen = false)}>Cancel</Button>
+      <Button onclick={updateFilter} disabled={isSaving}>
+        {#if isSaving}
+          <Loader2 class="w-4 h-4 mr-2 animate-spin" />
+          Saving...
+        {:else}
+          Save Changes
+        {/if}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Delete Confirmation Dialog -->
+<AlertDialog.Root bind:open={deleteDialogOpen}>
+  <AlertDialog.Content>
+    <AlertDialog.Header>
+      <AlertDialog.Title>Delete Filter</AlertDialog.Title>
+      <AlertDialog.Description>
+        Are you sure you want to delete "{deletingFilter?.name}"? This action cannot be undone.
+      </AlertDialog.Description>
+    </AlertDialog.Header>
+    <AlertDialog.Footer>
+      <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+      <AlertDialog.Action onclick={deleteFilter}>Delete</AlertDialog.Action>
+    </AlertDialog.Footer>
+  </AlertDialog.Content>
+</AlertDialog.Root>

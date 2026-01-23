@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Star, Calendar, Tv, Globe } from '@lucide/svelte';
+  import { Star, Calendar, Tv, Globe, Check } from '@lucide/svelte';
   import { Badge } from '$lib/components/ui/badge';
   import * as Card from '$lib/components/ui/card';
   import { cn } from '$lib/utils';
@@ -7,10 +7,11 @@
 
   interface Props {
     show: Show;
+    inSonarr?: boolean;
     class?: string;
   }
 
-  let { show, class: className }: Props = $props();
+  let { show, inSonarr = false, class: className }: Props = $props();
 
   const genres = $derived(() => {
     try {
@@ -57,7 +58,9 @@
 
       <!-- Rating badge -->
       {#if show.rating_average}
-        <div class="absolute top-2 right-2 flex items-center gap-1 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded">
+        <div
+          class="absolute top-2 right-2 flex items-center gap-1 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded"
+        >
           <Star class="w-3 h-3 fill-yellow-400 text-yellow-400" />
           {show.rating_average.toFixed(1)}
         </div>
@@ -69,10 +72,23 @@
           {show.status}
         </Badge>
       </div>
+
+      <!-- In Sonarr indicator -->
+      {#if inSonarr}
+        <div
+          class="absolute bottom-2 right-2 flex items-center gap-1 bg-green-600 text-white text-xs font-medium px-2 py-1 rounded"
+          title="In Sonarr"
+        >
+          <Check class="w-3 h-3" />
+          <span>Sonarr</span>
+        </div>
+      {/if}
     </div>
 
     <Card.Content class="p-3 space-y-2">
-      <h3 class="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+      <h3
+        class="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors"
+      >
         {show.name}
       </h3>
 
