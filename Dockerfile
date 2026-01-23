@@ -31,7 +31,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Copy package files and install production deps with native module rebuild
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm install --omit=dev
 
 # Copy built app
 COPY --from=builder /app/build ./build

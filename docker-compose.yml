@@ -21,6 +21,10 @@ services:
       timeout: 3s
       start_period: 10s
       retries: 3
-
+    networks:
+      - hf_proxy_network
+networks:
+  hf_proxy_network:
+    external: true
 volumes:
   fluxarr-data:
