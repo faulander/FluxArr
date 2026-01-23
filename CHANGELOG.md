@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-01-23
+
 ### Added
 
 - **IMDB Ratings via OMDB**
@@ -23,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Priority 5: Very old shows (5+ years)
     - Within each priority, most stale shows are updated first
   - Manual IMDB sync available via `npm run sync -- --imdb`
+
+- **Quick Add to Sonarr**
+  - "Add to Sonarr" button appears on hover over show cards
+  - Popover with Sonarr instance, quality profile, and root folder selection
+  - Button only shows for shows not already in all connected Sonarr instances
+  - Centered green button design for better visibility
 
 - **Connections Settings**
   - New unified "Connections" section in settings
@@ -42,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Filter panel now properly syncs when editing saved filters
 - First air date filter works correctly with only "after" or "before" set
 - New Filter dialog on filters page now opens correctly
+- Docker deployment: migrations path resolution for containerized environments
+- Docker deployment: cookie secure flag configurable via COOKIE_SECURE env var for HTTP access
 
 ## [0.1.0] - 2025-01-23
 
@@ -95,5 +105,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shadcn-svelte UI components
 - Docker support with health checks
 
-[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/yourusername/fluxarr/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yourusername/fluxarr/releases/tag/v0.1.0
