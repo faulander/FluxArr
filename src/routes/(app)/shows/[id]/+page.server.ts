@@ -2,13 +2,7 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { getShowById } from '$lib/server/shows';
 import { query } from '$lib/server/db';
-import {
-  getSonarrEntryByTvdbId,
-  sonarr,
-  type SonarrQualityProfile,
-  type SonarrRootFolder
-} from '$lib/server/sonarr';
-import type { User } from '$lib/types';
+import { sonarr, type SonarrQualityProfile, type SonarrRootFolder } from '$lib/server/sonarr';
 
 interface SonarrConfig {
   id: number;
@@ -23,6 +17,7 @@ interface SonarrConfig {
 interface SonarrConfigWithOptions extends SonarrConfig {
   qualityProfiles: SonarrQualityProfile[];
   rootFolders: SonarrRootFolder[];
+  hasShow: boolean; // Whether this config already has the show
 }
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -46,31 +41,37 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     [locals.user!.id]
   );
 
+  // Check which configs already have this show
+  const configsWithShow = new Set<number>();
+  if (show.thetvdb_id) {
+    const entries = query.all<{ config_id: number }>(
+      `SELECT config_id FROM sonarr_library WHERE tvdb_id = ?`,
+      [show.thetvdb_id]
+    );
+    for (const entry of entries) {
+      configsWithShow.add(entry.config_id);
+    }
+  }
+
   // Fetch quality profiles and root folders for each config
   const sonarrConfigsWithOptions: SonarrConfigWithOptions[] = await Promise.all(
     sonarrConfigs.map(async (config) => {
+      const hasShow = configsWithShow.has(config.id);
       try {
         const [qualityProfiles, rootFolders] = await Promise.all([
           sonarr.getQualityProfiles(config),
           sonarr.getRootFolders(config)
         ]);
-        return { ...config, qualityProfiles, rootFolders };
+        return { ...config, qualityProfiles, rootFolders, hasShow };
       } catch (err) {
         console.error(`Failed to fetch options for Sonarr config ${config.id}:`, err);
-        return { ...config, qualityProfiles: [], rootFolders: [] };
+        return { ...config, qualityProfiles: [], rootFolders: [], hasShow };
       }
     })
   );
 
-  // Check if show is already in user's Sonarr library
-  let sonarrEntry = null;
-  if (show.thetvdb_id) {
-    sonarrEntry = getSonarrEntryByTvdbId(locals.user!.id, show.thetvdb_id);
-  }
-
   return {
     show,
-    sonarrConfigs: sonarrConfigsWithOptions,
-    sonarrEntry
+    sonarrConfigs: sonarrConfigsWithOptions
   };
 };

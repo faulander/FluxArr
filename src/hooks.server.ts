@@ -2,13 +2,14 @@ import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { getSession } from '$lib/server/auth';
 import { migrate } from '$lib/server/db';
 import { startBackgroundJobs } from '$lib/server/background-jobs';
+import { logger } from '$lib/server/logger';
 
 // Run migrations on startup
 try {
   migrate();
-  console.log('Database migrations complete');
+  logger.db.info('Database migrations complete');
 } catch (error) {
-  console.error('Migration failed:', error);
+  logger.db.error('Migration failed', { error: String(error) });
 }
 
 // Start background jobs (Sonarr library sync, etc.)
@@ -39,21 +40,29 @@ export const handle: Handle = async ({ event, resolve }) => {
   const response = await resolve(event);
 
   // Log request
-  const duration = (performance.now() - start).toFixed(2);
-  const user = event.locals.user ? `[${event.locals.user.email}]` : '[anonymous]';
-  console.log(
-    `${event.request.method} ${event.url.pathname} - ${response.status} (${duration}ms) ${user}`
-  );
+  const duration = Math.round(performance.now() - start);
+  const user = event.locals.user?.email || 'anonymous';
+
+  // Only log non-static requests to reduce noise
+  if (!event.url.pathname.startsWith('/_app/') && !event.url.pathname.startsWith('/favicon')) {
+    logger.http.info(`${event.request.method} ${event.url.pathname} - ${response.status}`, {
+      method: event.request.method,
+      path: event.url.pathname,
+      status: response.status,
+      duration,
+      user
+    });
+  }
 
   return response;
 };
 
 export const handleError: HandleServerError = async ({ error, event, status, message }) => {
-  console.error('Server error:', {
+  logger.http.error(`Server error: ${message}`, {
     status,
     message,
     path: event.url.pathname,
-    error
+    error: error instanceof Error ? error.message : String(error)
   });
 
   return {

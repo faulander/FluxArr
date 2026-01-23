@@ -5,13 +5,18 @@
   import { cn } from '$lib/utils';
   import type { Show } from '$lib/types';
 
+  interface SonarrInstance {
+    configId: number;
+    configName: string;
+  }
+
   interface Props {
     show: Show;
-    inSonarr?: boolean;
+    sonarrInstances?: SonarrInstance[];
     class?: string;
   }
 
-  let { show, inSonarr = false, class: className }: Props = $props();
+  let { show, sonarrInstances = [], class: className }: Props = $props();
 
   const genres = $derived(() => {
     try {
@@ -24,20 +29,21 @@
   const statusColor = $derived(() => {
     switch (show.status) {
       case 'Running':
-        return 'bg-green-500/10 text-green-500 border-green-500/20';
+        return 'bg-black/70 text-green-400 border-green-500/50';
       case 'Ended':
-        return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+        return 'bg-black/70 text-gray-300 border-gray-500/50';
       case 'To Be Determined':
-        return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+        return 'bg-black/70 text-yellow-400 border-yellow-500/50';
       case 'In Development':
-        return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+        return 'bg-black/70 text-blue-400 border-blue-500/50';
       default:
-        return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+        return 'bg-black/70 text-gray-300 border-gray-500/50';
     }
   });
 
   const network = $derived(show.network_name || show.web_channel_name || 'Unknown');
   const year = $derived(show.premiered ? new Date(show.premiered).getFullYear() : null);
+  const inSonarr = $derived(sonarrInstances.length > 0);
 </script>
 
 <a href="/shows/{show.id}" class={cn('block group', className)}>
@@ -68,19 +74,23 @@
 
       <!-- Status badge -->
       <div class="absolute top-2 left-2">
-        <Badge variant="outline" class={cn('text-xs border', statusColor())}>
+        <Badge variant="outline" class={cn('text-xs border backdrop-blur-sm', statusColor())}>
           {show.status}
         </Badge>
       </div>
 
-      <!-- In Sonarr indicator -->
+      <!-- In Sonarr indicator(s) -->
       {#if inSonarr}
-        <div
-          class="absolute bottom-2 right-2 flex items-center gap-1 bg-green-600 text-white text-xs font-medium px-2 py-1 rounded"
-          title="In Sonarr"
-        >
-          <Check class="w-3 h-3" />
-          <span>Sonarr</span>
+        <div class="absolute bottom-2 right-2 flex flex-col gap-1 items-end">
+          {#each sonarrInstances as instance (instance.configId)}
+            <div
+              class="flex items-center gap-1 bg-green-600 text-white text-xs font-medium px-2 py-0.5 rounded"
+              title="In {instance.configName}"
+            >
+              <Check class="w-3 h-3" />
+              <span class="max-w-20 truncate">{instance.configName}</span>
+            </div>
+          {/each}
         </div>
       {/if}
     </div>

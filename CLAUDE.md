@@ -173,6 +173,22 @@ docker run -p 3000:3000 myapp
 
 The Dockerfile uses multi-stage builds for optimal image size and includes a health check at `/api/health`.
 
+## Settings Page Structure
+
+The settings page uses a sidebar navigation pattern with each settings topic in its own component to keep files short and maintainable:
+
+- `src/lib/components/settings/settings-sidebar.svelte` - Navigation sidebar for settings sections
+- `src/lib/components/settings/profile-settings.svelte` - User profile settings
+- `src/lib/components/settings/sonarr-settings.svelte` - Sonarr connection management
+- `src/lib/components/settings/jobs-settings.svelte` - Background jobs management (admin only)
+- `src/lib/components/settings/logs-settings.svelte` - Application logs viewer (admin only)
+- Add new settings topics as separate components in `src/lib/components/settings/`
+
+When adding new settings sections:
+1. Create a new component in `src/lib/components/settings/`
+2. Add the navigation item to the sidebar component
+3. Import and use the component in the settings page
+
 ## Svelte MCP Server
 
 This project has access to the Svelte MCP server for documentation lookup and code validation:

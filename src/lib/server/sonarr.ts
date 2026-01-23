@@ -1,4 +1,5 @@
 import { query } from './db';
+import { logger } from './logger';
 
 // Sonarr library cache entry
 export interface SonarrLibraryEntry {
@@ -335,7 +336,11 @@ export async function syncSonarrLibrary(config: SonarrConfig): Promise<number> {
 
     return series.length;
   } catch (error) {
-    console.error(`Failed to sync Sonarr library for config ${config.id}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.sonarr.error(`Failed to sync library for config ${config.id}: ${errorMessage}`, {
+      configId: config.id,
+      error: errorMessage
+    });
     throw error;
   }
 }
@@ -348,9 +353,17 @@ export async function syncAllSonarrLibraries(): Promise<{ configId: number; coun
     try {
       const count = await syncSonarrLibrary(config);
       results.push({ configId: config.id, count });
-      console.log(`Synced ${count} series from Sonarr config "${config.name}"`);
+      logger.sonarr.info(`Synced ${count} series from "${config.name}"`, {
+        configId: config.id,
+        configName: config.name,
+        seriesCount: count
+      });
     } catch (error) {
-      console.error(`Failed to sync config ${config.id}:`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.sonarr.error(`Failed to sync config ${config.id}: ${errorMessage}`, {
+        configId: config.id,
+        error: errorMessage
+      });
     }
   }
 
@@ -367,6 +380,30 @@ export function getUserSonarrTvdbIds(userId: number): Set<number> {
     [userId]
   );
   return new Set(rows.map((r) => r.tvdb_id));
+}
+
+// Get TVDB IDs mapped to their Sonarr config names
+export interface SonarrInstanceInfo {
+  configId: number;
+  configName: string;
+}
+
+export function getUserSonarrTvdbMap(userId: number): Map<number, SonarrInstanceInfo[]> {
+  const rows = query.all<{ tvdb_id: number; config_id: number; config_name: string }>(
+    `SELECT sl.tvdb_id, sc.id as config_id, sc.name as config_name
+     FROM sonarr_library sl
+     JOIN sonarr_configs sc ON sl.config_id = sc.id
+     WHERE (sc.user_id = ? OR sc.user_id IS NULL) AND sl.tvdb_id IS NOT NULL`,
+    [userId]
+  );
+
+  const map = new Map<number, SonarrInstanceInfo[]>();
+  for (const row of rows) {
+    const existing = map.get(row.tvdb_id) || [];
+    existing.push({ configId: row.config_id, configName: row.config_name });
+    map.set(row.tvdb_id, existing);
+  }
+  return map;
 }
 
 // Get Sonarr library entry by TVDB ID for a user

@@ -79,10 +79,16 @@
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
+  // Sonarr configs - separate those that have the show from those that don't
+  const configsWithShow = $derived(data.sonarrConfigs.filter((c) => c.hasShow));
+  const configsWithoutShow = $derived(data.sonarrConfigs.filter((c) => !c.hasShow));
+
   // Sonarr dialog state
   let sonarrDialogOpen = $state(false);
   let selectedConfigId = $state<string>(
-    data.sonarrConfigs.find((c) => c.is_default)?.id.toString() || ''
+    configsWithoutShow.find((c) => c.is_default)?.id.toString() ||
+      configsWithoutShow[0]?.id.toString() ||
+      ''
   );
   let selectedQualityProfileId = $state<string>('');
   let selectedRootFolderId = $state<string>('');
@@ -91,7 +97,7 @@
   // Get the currently selected config with its options
   const selectedConfig = $derived(() => {
     if (!selectedConfigId) return null;
-    return data.sonarrConfigs.find((c) => c.id.toString() === selectedConfigId) || null;
+    return configsWithoutShow.find((c) => c.id.toString() === selectedConfigId) || null;
   });
 
   // Derive selected config name for display
@@ -288,8 +294,8 @@
           <!-- Description -->
           <p class="text-muted-foreground leading-relaxed max-w-3xl">{cleanSummary()}</p>
 
-          <!-- Sonarr Status Banner -->
-          {#if data.sonarrEntry}
+          <!-- Sonarr Status Banner - show all instances that have this show -->
+          {#if configsWithShow.length > 0}
             <div
               class="flex items-start gap-4 p-4 rounded-lg bg-green-500/10 border border-green-500/20"
             >
@@ -297,27 +303,18 @@
                 <Check class="w-5 h-5 text-green-500" />
               </div>
               <div class="flex-1">
-                <h4 class="font-medium text-green-600 dark:text-green-400">Already in Sonarr</h4>
-                <p class="text-sm text-muted-foreground mt-0.5">
-                  Added via "{data.sonarrEntry.config_name}"
-                </p>
-                <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-                  <span class="flex items-center gap-1">
-                    <Tv class="w-3 h-3" />
-                    {data.sonarrEntry.episode_file_count}/{data.sonarrEntry.episode_count} episodes
-                  </span>
-                  {#if data.sonarrEntry.size_on_disk > 0}
-                    <span class="flex items-center gap-1">
-                      <HardDrive class="w-3 h-3" />
-                      {formatBytes(data.sonarrEntry.size_on_disk)}
-                    </span>
-                  {/if}
-                  <Badge
-                    variant={data.sonarrEntry.monitored ? 'default' : 'secondary'}
-                    class="text-xs"
-                  >
-                    {data.sonarrEntry.monitored ? 'Monitored' : 'Unmonitored'}
-                  </Badge>
+                <h4 class="font-medium text-green-600 dark:text-green-400">
+                  In Sonarr ({configsWithShow.length} instance{configsWithShow.length > 1
+                    ? 's'
+                    : ''})
+                </h4>
+                <div class="flex flex-wrap gap-2 mt-2">
+                  {#each configsWithShow as config (config.id)}
+                    <Badge variant="secondary" class="text-xs">
+                      <Check class="w-3 h-3 mr-1" />
+                      {config.name}
+                    </Badge>
+                  {/each}
                 </div>
               </div>
             </div>
@@ -325,19 +322,14 @@
 
           <!-- Actions -->
           <div class="flex flex-wrap gap-3 pt-2">
-            {#if data.sonarrEntry}
-              <!-- Show is already in Sonarr -->
-              <Button disabled variant="outline" class="gap-2">
-                <Check class="w-4 h-4" />
-                In Sonarr
-              </Button>
-            {:else if show.thetvdb_id && data.sonarrConfigs.length > 0}
+            {#if show.thetvdb_id && configsWithoutShow.length > 0}
+              <!-- Can add to at least one Sonarr instance -->
               <Dialog.Root bind:open={sonarrDialogOpen}>
                 <Dialog.Trigger>
                   {#snippet child({ props })}
                     <Button {...props} class="gap-2">
                       <Send class="w-4 h-4" />
-                      Send to Sonarr
+                      {configsWithShow.length > 0 ? 'Add to Another Sonarr' : 'Send to Sonarr'}
                     </Button>
                   {/snippet}
                 </Dialog.Trigger>
@@ -357,7 +349,7 @@
                           {selectedConfigName()}
                         </Select.Trigger>
                         <Select.Content>
-                          {#each data.sonarrConfigs as config}
+                          {#each configsWithoutShow as config (config.id)}
                             <Select.Item value={config.id.toString()}>
                               {config.name}
                               {#if config.is_default}
@@ -377,7 +369,7 @@
                             {selectedQualityProfileName()}
                           </Select.Trigger>
                           <Select.Content>
-                            {#each selectedConfig()?.qualityProfiles || [] as profile}
+                            {#each selectedConfig()?.qualityProfiles || [] as profile (profile.id)}
                               <Select.Item value={profile.id.toString()}>
                                 {profile.name}
                               </Select.Item>
@@ -393,7 +385,7 @@
                             {selectedRootFolderName()}
                           </Select.Trigger>
                           <Select.Content>
-                            {#each selectedConfig()?.rootFolders || [] as folder}
+                            {#each selectedConfig()?.rootFolders || [] as folder (folder.id)}
                               <Select.Item value={folder.id.toString()}>
                                 {folder.path}
                                 <span class="ml-2 text-xs text-muted-foreground">
@@ -428,12 +420,18 @@
                   </Dialog.Footer>
                 </Dialog.Content>
               </Dialog.Root>
-            {:else if show.thetvdb_id}
+            {:else if configsWithShow.length > 0 && configsWithoutShow.length === 0}
+              <!-- In all Sonarr instances -->
+              <Button disabled variant="outline" class="gap-2">
+                <Check class="w-4 h-4" />
+                In All Sonarr Instances
+              </Button>
+            {:else if show.thetvdb_id && data.sonarrConfigs.length === 0}
               <Button disabled variant="outline" class="gap-2">
                 <Send class="w-4 h-4" />
                 Configure Sonarr in Settings
               </Button>
-            {:else}
+            {:else if !show.thetvdb_id}
               <Button disabled variant="outline" class="gap-2">
                 <Send class="w-4 h-4" />
                 No TVDB ID available
