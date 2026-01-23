@@ -131,7 +131,10 @@
     });
   }
 
-  function getStatusBadge(request: Request): { variant: 'default' | 'secondary' | 'destructive' | 'outline'; text: string } {
+  function getStatusBadge(request: Request): {
+    variant: 'default' | 'secondary' | 'destructive' | 'outline';
+    text: string;
+  } {
     if (request.status === 'failed') {
       return { variant: 'destructive', text: 'Failed' };
     }
@@ -186,9 +189,7 @@
         <p class="text-muted-foreground text-sm mt-1">
           Shows you add to Sonarr through FluxArr will appear here.
         </p>
-        <Button class="mt-4" onclick={() => goto('/shows')}>
-          Discover Shows
-        </Button>
+        <Button class="mt-4" onclick={() => goto('/shows')}>Discover Shows</Button>
       </Card.Content>
     </Card.Root>
   {:else}
@@ -262,7 +263,7 @@
                     <div class="flex items-center gap-1">
                       <Tv class="w-4 h-4" />
                       <span>
-                        {request.sonarr.episodeFileCount} / {request.sonarr.totalEpisodeCount} episodes
+                        {request.sonarr.episodeFileCount} / {request.sonarr.episodeCount} episodes
                       </span>
                     </div>
                     <div class="flex items-center gap-1">
@@ -302,7 +303,8 @@
     <AlertDialog.Header>
       <AlertDialog.Title>Remove Request</AlertDialog.Title>
       <AlertDialog.Description>
-        Remove "{deletingRequest?.showName}" from your requests? This only removes it from FluxArr tracking, not from Sonarr.
+        Remove "{deletingRequest?.showName}" from your requests? This only removes it from FluxArr
+        tracking, not from Sonarr.
       </AlertDialog.Description>
     </AlertDialog.Header>
     <AlertDialog.Footer>
