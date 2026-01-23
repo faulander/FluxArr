@@ -5,15 +5,24 @@ node_modules
 build
 .svelte-kit
 
-# Dev/test files
-*.log
+# Development files
 .env
 .env.*
 !.env.example
 
+# Data
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Git
+.git
+.gitignore
+
 # IDE
-.vscode
 .idea
+.vscode
 *.swp
 *.swo
 
@@ -21,15 +30,19 @@ build
 .DS_Store
 Thumbs.db
 
-# Git
-.git
-.gitignore
+# Logs
+*.log
+npm-debug.log*
 
-# Docker
+# Test
+coverage
+.nyc_output
+
+# Documentation (not needed in container)
+*.md
+!README.md
+
+# Docker files (not needed inside container)
 Dockerfile
 docker-compose*.yml
 .dockerignore
-
-# Docs
-README.md
-CLAUDE.md

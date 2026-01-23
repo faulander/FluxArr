@@ -18,3 +18,8 @@ Make filter dropdowns searchable for easier selection.
 - Type-ahead search in network dropdown
 - Type-ahead search in language dropdown
 - Type-ahead search in cast/crew filters
+
+### Delete Shows on Streaming Providers
+- User can select Streaming Providers and Countries.
+- System checks if downloaded content is available on these platforms
+- user can delete/unmonitor this content

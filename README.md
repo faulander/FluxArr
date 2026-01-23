@@ -117,37 +117,63 @@ Configure sync frequency in **Settings → Background Jobs**.
 
 ## Docker Deployment
 
+The easiest way to run FluxArr is with Docker Compose:
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/fluxarr.git
+cd fluxarr
+
+# Start with Docker Compose
+docker compose up -d
+
+# View logs
+docker compose logs -f
+```
+
+Open http://localhost:3001 and create your account.
+
+The included `docker-compose.yml` handles everything:
+- Builds the image from source
+- Persists database in a Docker volume
+- Auto-restarts on failure
+- Health monitoring
+
+### Manual Docker
+
 ```bash
 # Build the image
 docker build -t fluxarr .
 
 # Run the container
-docker run -p 3000:3000 \
+docker run -d \
+  --name fluxarr \
+  -p 3000:3000 \
   -v fluxarr-data:/app/data \
-  -e AUTH_SECRET="your-secret-key" \
+  --restart unless-stopped \
   fluxarr
 ```
 
 The container includes a health check at `/api/health`.
 
-### Docker Compose
+### Data Persistence
 
-```yaml
-version: '3.8'
-services:
-  fluxarr:
-    build: .
-    ports:
-      - "3000:3000"
-    volumes:
-      - fluxarr-data:/app/data
-    environment:
-      - AUTH_SECRET=your-secret-key
-    restart: unless-stopped
+The SQLite database is stored in `/app/data` inside the container. The docker-compose.yml mounts this to a named volume (`fluxarr-data`) for persistence.
 
-volumes:
-  fluxarr-data:
+To backup your data:
+```bash
+docker cp fluxarr:/app/data/fluxarr.db ./backup.db
 ```
+
+### Initial TVMaze Sync
+
+On first launch, you can trigger a data sync through the Settings UI or run it manually:
+
+```bash
+docker compose exec fluxarr npm run sync
+```
+
+The background job will handle incremental updates after the initial sync.
 
 ## Development
 
