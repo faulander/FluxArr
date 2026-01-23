@@ -1,3 +1,5 @@
+<img width="2363" height="1329" alt="image" src="https://github.com/user-attachments/assets/4a30cfcf-75ca-46f5-a839-ca051037b39f" />
+
 # FluxArr
 
 A modern TV show discovery and management app that helps you find new shows and send them directly to your Sonarr instances.
