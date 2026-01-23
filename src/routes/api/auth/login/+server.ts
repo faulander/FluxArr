@@ -16,11 +16,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
   }
 
   // Set session cookie
+  // Note: secure should be true in production with HTTPS
+  // Set COOKIE_SECURE=false env var to disable for HTTP-only setups
   cookies.set('session', result.session.id, {
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false',
     maxAge: 60 * 60 * 24 * 30 // 30 days
   });
 

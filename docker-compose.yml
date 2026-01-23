@@ -13,6 +13,8 @@ services:
       - PORT=3000
       - HOST=0.0.0.0
       - DATABASE_PATH=/app/data/fluxarr.db
+      # Set to false if not using HTTPS
+      - COOKIE_SECURE=false
     healthcheck:
       test:
         ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://127.0.0.1:3000/api/health']
