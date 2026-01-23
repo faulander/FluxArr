@@ -1,420 +1,161 @@
-# SvelteKit Template
+# FluxArr
 
-A production-ready SvelteKit template with Svelte 5, TailwindCSS 4, shadcn-svelte, and essential utilities pre-configured.
+A modern TV show discovery and management app that helps you find new shows and send them directly to your Sonarr instances.
+
+## What is FluxArr?
+
+FluxArr pulls TV show data from TVMaze and presents it in a beautiful, searchable interface. Found a show you want to watch? Send it to Sonarr with one click and let your media server handle the rest.
 
 ## Features
 
-- **Svelte 5** with runes syntax (`$state`, `$props`, `$derived`)
-- **TailwindCSS 4** with dark mode support
-- **shadcn-svelte** UI components
-- **TypeScript** with strict mode
-- **ESLint + Prettier** for code quality
-- **Zod + Superforms** for form validation
-- **Docker** ready for deployment
-- Pre-built components: SEO, Theme Toggle, Spinner, Toast notifications
+### Discover Shows
+- Browse thousands of TV shows with cover art, ratings, and detailed information
+- Search by title to quickly find what you're looking for
+- Filter by genre, language, status, network, rating, premiere date, and more
+- Use include/exclude filters for precise control over search results
+
+### Multi-Sonarr Support
+- Connect multiple Sonarr instances (e.g., one for English content, one for German)
+- See which Sonarr instance(s) already have each show
+- Add shows to any connected instance with quality profile and root folder selection
+- Shared instances available for multi-user setups
+
+### Saved Filters
+- Create filter presets for your favorite configurations
+- Set a default filter that loads automatically
+- Apply saved filters with one click
+
+### Background Sync
+- Automatic TVMaze data synchronization keeps your library current
+- Incremental updates fetch only what's changed
+- Configure sync intervals to your preference
+
+### Additional Features
+- Dark/light theme support
+- User authentication with registration
+- System logs with filtering and export
+- Health monitoring endpoint for Docker deployments
 
 ## Quick Start
 
+### Prerequisites
+- Node.js 18+
+- npm
+
+### Installation
+
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/fluxarr.git
+cd fluxarr
+
 # Install dependencies
 npm install
 
-# Copy environment variables
+# Set up environment
 cp .env.example .env
 
-# Start development server
+# Run database migrations
+npm run db:migrate
+
+# Sync TV show data from TVMaze
+npm run sync
+
+# Start the app
 npm run dev
 ```
 
-## Available Scripts
+Open http://localhost:5173 and create your account.
 
-| Command                | Description                      |
-| ---------------------- | -------------------------------- |
-| `npm run dev`          | Start development server         |
-| `npm run build`        | Build for production             |
-| `npm run preview`      | Preview production build         |
-| `npm run check`        | Run svelte-check for type errors |
-| `npm run lint`         | Run ESLint                       |
-| `npm run lint:fix`     | Run ESLint with auto-fix         |
-| `npm run format`       | Format code with Prettier        |
-| `npm run format:check` | Check code formatting            |
+### First-Time Setup
 
-## Project Structure
+1. **Register** - Create your user account
+2. **Add Sonarr** - Go to Settings → Sonarr and connect your instance(s)
+3. **Browse** - Head to Discover to explore shows
+4. **Send** - Click any show and hit "Send to Sonarr"
 
-```
-src/
-├── routes/
-│   ├── +layout.svelte      # Root layout (includes Toaster)
-│   ├── +page.svelte        # Home page
-│   ├── +error.svelte       # Error page (404, 500, etc.)
-│   └── api/
-│       └── health/         # Health check endpoint
-├── lib/
-│   ├── api.ts              # Typed fetch wrapper
-│   ├── utils.ts            # Utility functions (cn, etc.)
-│   └── components/
-│       ├── seo.svelte      # SEO meta tags
-│       ├── theme-toggle.svelte  # Dark/light mode toggle
-│       ├── spinner.svelte  # Loading spinner
-│       └── ui/             # shadcn-svelte components
-└── hooks.server.ts         # Server hooks (logging, auth prep)
-```
-
-## Usage Guide
-
-### SEO Component
-
-Add meta tags to any page:
-
-```svelte
-<script>
-  import Seo from '$lib/components/seo.svelte';
-</script>
-
-<Seo
-  title="Page Title"
-  description="Page description for search engines"
-  image="/og-image.png"
-  noindex={false}
-  nofollow={false}
-/>
-```
-
-### Theme Toggle (Dark/Light Mode)
-
-The theme toggle persists user preference in localStorage:
-
-```svelte
-<script>
-  import ThemeToggle from '$lib/components/theme-toggle.svelte';
-</script>
-
-<header>
-  <ThemeToggle />
-</header>
-```
-
-### Toast Notifications
-
-Toaster is pre-configured in the layout. Import and use anywhere:
-
-```svelte
-<script>
-  import { toast } from 'svelte-sonner';
-
-  function handleSubmit() {
-    toast.success('Saved successfully!');
-  }
-
-  function handleError() {
-    toast.error('Something went wrong');
-  }
-</script>
-
-<button onclick={handleSubmit}>Save</button>
-```
-
-Available toast types:
-
-- `toast('Default message')`
-- `toast.success('Success!')`
-- `toast.error('Error!')`
-- `toast.info('Info')`
-- `toast.warning('Warning')`
-- `toast.loading('Loading...')`
-
-### Loading Spinner
-
-```svelte
-<script>
-  import Spinner from '$lib/components/spinner.svelte';
-
-  let loading = $state(true);
-</script>
-
-{#if loading}
-  <Spinner />
-  <!-- Default: md -->
-  <Spinner size="sm" />
-  <!-- Small -->
-  <Spinner size="lg" />
-  <!-- Large -->
-{/if}
-```
-
-### API Fetch Utility
-
-Type-safe API calls with automatic JSON handling and error management:
-
-```typescript
-import { api, ApiError } from '$lib/api';
-
-// GET request
-const users = await api.get<User[]>('/api/users');
-
-// POST request
-const newUser = await api.post<User>('/api/users', {
-  name: 'John',
-  email: 'john@example.com'
-});
-
-// PUT request
-await api.put('/api/users/1', { name: 'Jane' });
-
-// PATCH request
-await api.patch('/api/users/1', { name: 'Jane' });
-
-// DELETE request
-await api.delete('/api/users/1');
-
-// Error handling
-try {
-  await api.get('/api/protected');
-} catch (e) {
-  if (e instanceof ApiError) {
-    console.log(e.status); // HTTP status code
-    console.log(e.message); // Error message
-    console.log(e.data); // Response body (if any)
-  }
-}
-```
-
-### Form Validation with Superforms
-
-Server-side validation with Zod schemas:
-
-```typescript
-// src/routes/contact/+page.server.ts
-import { z } from 'zod';
-import { superValidate, fail } from 'sveltekit-superforms';
-import { zod } from 'sveltekit-superforms/adapters';
-
-const schema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  message: z.string().min(10, 'Message must be at least 10 characters')
-});
-
-export const load = async () => {
-  const form = await superValidate(zod(schema));
-  return { form };
-};
-
-export const actions = {
-  default: async ({ request }) => {
-    const form = await superValidate(request, zod(schema));
-
-    if (!form.valid) {
-      return fail(400, { form });
-    }
-
-    // Process valid form data
-    console.log(form.data);
-
-    return { form };
-  }
-};
-```
-
-```svelte
-<!-- src/routes/contact/+page.svelte -->
-<script lang="ts">
-  import { superForm } from 'sveltekit-superforms';
-
-  let { data } = $props();
-  const { form, errors, enhance } = superForm(data.form);
-</script>
-
-<form method="POST" use:enhance>
-  <label>
-    Name
-    <input name="name" bind:value={$form.name} />
-    {#if $errors.name}<span class="error">{$errors.name}</span>{/if}
-  </label>
-
-  <label>
-    Email
-    <input name="email" type="email" bind:value={$form.email} />
-    {#if $errors.email}<span class="error">{$errors.email}</span>{/if}
-  </label>
-
-  <label>
-    Message
-    <textarea name="message" bind:value={$form.message}></textarea>
-    {#if $errors.message}<span class="error">{$errors.message}</span>{/if}
-  </label>
-
-  <button type="submit">Send</button>
-</form>
-```
-
-### Adding shadcn-svelte Components
-
-Install additional UI components as needed:
-
-```bash
-# Add a button component
-npx shadcn-svelte@next add button
-
-# Add multiple components
-npx shadcn-svelte@next add button card dialog
-
-# View all available components
-npx shadcn-svelte@next add
-```
-
-Usage:
-
-```svelte
-<script>
-  import { Button } from '$lib/components/ui/button';
-</script>
-
-<Button variant="default">Click me</Button>
-<Button variant="destructive">Delete</Button>
-<Button variant="outline">Cancel</Button>
-```
+## Configuration
 
 ### Environment Variables
 
-Configure in `.env` (copy from `.env.example`):
+Copy `.env.example` to `.env` and configure:
 
 ```bash
-# Public variables (exposed to client)
-PUBLIC_APP_NAME="My App"
+# App settings
+PUBLIC_APP_NAME="FluxArr"
 PUBLIC_APP_URL="http://localhost:5173"
 
-# Private variables (server-only)
-DATABASE_URL="postgresql://..."
-AUTH_SECRET="your-secret-key"
+# Session secret (generate a random string)
+AUTH_SECRET="your-secret-key-here"
 ```
 
-Access in code:
+### Connecting Sonarr
 
-```typescript
-// Client-safe variables
-import { PUBLIC_APP_NAME } from '$env/static/public';
+1. Go to **Settings → Sonarr**
+2. Click **Add**
+3. Enter your Sonarr URL (e.g., `http://localhost:8989`)
+4. Enter your API key (found in Sonarr → Settings → General → Security)
+5. Test the connection and save
 
-// Server-only variables
-import { DATABASE_URL } from '$env/static/private';
-```
+You can add multiple Sonarr instances and set one as the default.
 
-### Server Hooks
+## Data Sync
 
-The `src/hooks.server.ts` file includes:
-
-- Request timing/logging
-- Error handling with user-friendly messages
-- Prepared structure for authentication
-
-To add authentication:
-
-```typescript
-// src/hooks.server.ts
-export const handle: Handle = async ({ event, resolve }) => {
-  // Get session from cookie
-  const sessionId = event.cookies.get('session');
-
-  if (sessionId) {
-    // Fetch user from database
-    const user = await getUser(sessionId);
-    event.locals.user = user;
-  }
-
-  return resolve(event);
-};
-```
-
-## Styling
-
-### Tailwind CSS
-
-Use Tailwind classes directly:
-
-```svelte
-<div class="flex items-center gap-4 p-4 bg-background text-foreground">
-  <h1 class="text-2xl font-bold">Hello</h1>
-</div>
-```
-
-### CSS Variables
-
-Available theme colors (defined in `src/routes/layout.css`):
-
-| Variable        | Usage               |
-| --------------- | ------------------- |
-| `--background`  | Page background     |
-| `--foreground`  | Default text        |
-| `--primary`     | Primary actions     |
-| `--secondary`   | Secondary elements  |
-| `--muted`       | Muted backgrounds   |
-| `--accent`      | Accent highlights   |
-| `--destructive` | Destructive actions |
-| `--border`      | Borders             |
-| `--input`       | Form inputs         |
-| `--ring`        | Focus rings         |
-
-### Class Merging
-
-Use the `cn()` utility for conditional classes:
-
-```svelte
-<script>
-  import { cn } from '$lib/utils';
-
-  let { active, className } = $props();
-</script>
-
-<div class={cn('px-4 py-2 rounded-md', active && 'bg-primary text-primary-foreground', className)}>
-  Content
-</div>
-```
-
-## Deployment
-
-### Docker
-
-Build and run:
+FluxArr uses TVMaze as its data source. The background job handles automatic updates, but you can also sync manually:
 
 ```bash
-# Build image
-docker build -t myapp .
+# Incremental sync (only recent changes)
+npm run sync
 
-# Run container
-docker run -p 3000:3000 myapp
+# Full sync (rebuilds entire database)
+npm run sync:full
+```
 
-# With environment variables
+Configure sync frequency in **Settings → Background Jobs**.
+
+## Docker Deployment
+
+```bash
+# Build the image
+docker build -t fluxarr .
+
+# Run the container
 docker run -p 3000:3000 \
-  -e DATABASE_URL="postgresql://..." \
-  -e AUTH_SECRET="your-secret" \
-  myapp
+  -v fluxarr-data:/app/data \
+  -e AUTH_SECRET="your-secret-key" \
+  fluxarr
 ```
 
-The Dockerfile includes:
+The container includes a health check at `/api/health`.
 
-- Multi-stage build for small image size
-- Non-root user for security
-- Health check at `/api/health`
+### Docker Compose
 
-### Node.js
+```yaml
+version: '3.8'
+services:
+  fluxarr:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - fluxarr-data:/app/data
+    environment:
+      - AUTH_SECRET=your-secret-key
+    restart: unless-stopped
+
+volumes:
+  fluxarr-data:
+```
+
+## Development
 
 ```bash
-# Build
-npm run build
-
-# Run
-node build
-```
-
-### Health Check
-
-The `/api/health` endpoint returns:
-
-```json
-{
-  "status": "ok",
-  "timestamp": "2024-01-15T10:30:00.000Z"
-}
+npm run dev          # Start dev server
+npm run build        # Build for production
+npm run preview      # Preview production build
+npm run check        # Type checking
+npm run lint         # Lint code
+npm run format       # Format code
 ```
 
 ## License
