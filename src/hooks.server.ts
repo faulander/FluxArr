@@ -4,16 +4,21 @@ import { migrate } from '$lib/server/db';
 import { startBackgroundJobs } from '$lib/server/background-jobs';
 import { logger } from '$lib/server/logger';
 
-// Run migrations on startup
+// Run migrations on startup, then start background jobs
+let migrationsSucceeded = false;
 try {
   migrate();
   logger.db.info('Database migrations complete');
+  migrationsSucceeded = true;
 } catch (error) {
   logger.db.error('Migration failed', { error: String(error) });
+  console.error('FATAL: Database migrations failed. Background jobs will not start.');
 }
 
-// Start background jobs (Sonarr library sync, etc.)
-startBackgroundJobs();
+// Only start background jobs if migrations succeeded
+if (migrationsSucceeded) {
+  startBackgroundJobs();
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
   const start = performance.now();

@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { env } from '$env/dynamic/private';
@@ -8,6 +8,29 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Database path from env or default
 const DB_PATH = env.DATABASE_PATH || './data/fluxarr.db';
+
+// Migrations path - check multiple locations for dev vs production
+function getMigrationsDir(): string {
+  // In production Docker: /app/migrations
+  const dockerPath = '/app/migrations';
+  if (existsSync(dockerPath)) {
+    return dockerPath;
+  }
+
+  // In development: relative to this file
+  const devPath = join(__dirname, 'migrations');
+  if (existsSync(devPath)) {
+    return devPath;
+  }
+
+  // Fallback: check relative to process.cwd()
+  const cwdPath = join(process.cwd(), 'src/lib/server/migrations');
+  if (existsSync(cwdPath)) {
+    return cwdPath;
+  }
+
+  throw new Error(`Migrations directory not found. Checked: ${dockerPath}, ${devPath}, ${cwdPath}`);
+}
 
 // Singleton database instance
 let db: Database.Database | null = null;
@@ -50,7 +73,7 @@ export function migrate(): void {
   );
 
   // Read migration files
-  const migrationsDir = join(__dirname, 'migrations');
+  const migrationsDir = getMigrationsDir();
   const files = readdirSync(migrationsDir)
     .filter((f) => f.endsWith('.sql'))
     .sort();
@@ -77,15 +100,21 @@ export type Row = Record<string, unknown>;
 // Query helpers
 export const query = {
   all<T = Row>(sql: string, params: unknown[] = []): T[] {
-    return getDb().prepare(sql).all(...params) as T[];
+    return getDb()
+      .prepare(sql)
+      .all(...params) as T[];
   },
 
   get<T = Row>(sql: string, params: unknown[] = []): T | undefined {
-    return getDb().prepare(sql).get(...params) as T | undefined;
+    return getDb()
+      .prepare(sql)
+      .get(...params) as T | undefined;
   },
 
   run(sql: string, params: unknown[] = []): Database.RunResult {
-    return getDb().prepare(sql).run(...params);
+    return getDb()
+      .prepare(sql)
+      .run(...params);
   },
 
   exec(sql: string): void {

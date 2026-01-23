@@ -36,8 +36,8 @@ RUN npm install --only=production
 # Copy built app
 COPY --from=builder /app/build ./build
 
-# Copy migrations for database setup
-COPY --from=builder /app/src/lib/server/migrations ./src/lib/server/migrations
+# Copy migrations for database setup (to /app/migrations for easy access)
+COPY --from=builder /app/src/lib/server/migrations ./migrations
 
 # Copy sync worker script
 COPY --from=builder /app/scripts ./scripts

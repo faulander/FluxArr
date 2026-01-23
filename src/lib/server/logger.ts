@@ -48,7 +48,12 @@ function formatConsoleMessage(level: LogLevel, source: string, message: string):
   return `${timestamp} [${levelUpper}] [${source}] ${message}`;
 }
 
-function logToConsole(level: LogLevel, source: string, message: string, details?: Record<string, unknown>) {
+function logToConsole(
+  level: LogLevel,
+  source: string,
+  message: string,
+  details?: Record<string, unknown>
+) {
   if (!consoleOutput) return;
 
   const formatted = formatConsoleMessage(level, source, message);
@@ -68,16 +73,35 @@ function logToConsole(level: LogLevel, source: string, message: string, details?
   }
 }
 
-function logToDb(level: LogLevel, source: string, message: string, details?: Record<string, unknown>) {
+// Track if we've warned about missing table to avoid spam
+let warnedAboutMissingTable = false;
+
+function logToDb(
+  level: LogLevel,
+  source: string,
+  message: string,
+  details?: Record<string, unknown>
+) {
   if (!shouldLog(level)) return;
 
   try {
-    query.run(
-      'INSERT INTO logs (level, source, message, details) VALUES (?, ?, ?, ?)',
-      [level, source, message, details ? JSON.stringify(details) : null]
-    );
+    query.run('INSERT INTO logs (level, source, message, details) VALUES (?, ?, ?, ?)', [
+      level,
+      source,
+      message,
+      details ? JSON.stringify(details) : null
+    ]);
   } catch (error) {
-    // Fallback to console if DB logging fails
+    // Silently ignore "no such table" errors during startup (before migrations)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('no such table: logs')) {
+      if (!warnedAboutMissingTable) {
+        console.warn('Database logs table not yet created - logs will appear after migrations run');
+        warnedAboutMissingTable = true;
+      }
+      return;
+    }
+    // Log other errors
     console.error('Failed to write log to database:', error);
   }
 }
@@ -92,10 +116,14 @@ function log(level: LogLevel, source: string, message: string, details?: Record<
  */
 export function createLogger(source: string) {
   return {
-    debug: (message: string, details?: Record<string, unknown>) => log('debug', source, message, details),
-    info: (message: string, details?: Record<string, unknown>) => log('info', source, message, details),
-    warn: (message: string, details?: Record<string, unknown>) => log('warn', source, message, details),
-    error: (message: string, details?: Record<string, unknown>) => log('error', source, message, details)
+    debug: (message: string, details?: Record<string, unknown>) =>
+      log('debug', source, message, details),
+    info: (message: string, details?: Record<string, unknown>) =>
+      log('info', source, message, details),
+    warn: (message: string, details?: Record<string, unknown>) =>
+      log('warn', source, message, details),
+    error: (message: string, details?: Record<string, unknown>) =>
+      log('error', source, message, details)
   };
 }
 
@@ -222,8 +250,12 @@ export function getLogStats(): LogStats {
     bySource[row.source] = row.count;
   }
 
-  const oldest = query.get<{ timestamp: string }>('SELECT timestamp FROM logs ORDER BY timestamp ASC LIMIT 1');
-  const newest = query.get<{ timestamp: string }>('SELECT timestamp FROM logs ORDER BY timestamp DESC LIMIT 1');
+  const oldest = query.get<{ timestamp: string }>(
+    'SELECT timestamp FROM logs ORDER BY timestamp ASC LIMIT 1'
+  );
+  const newest = query.get<{ timestamp: string }>(
+    'SELECT timestamp FROM logs ORDER BY timestamp DESC LIMIT 1'
+  );
 
   return {
     total,
