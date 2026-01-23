@@ -44,16 +44,22 @@
   const network = $derived(show.network_name || show.web_channel_name || 'Unknown');
   const year = $derived(show.premiered ? new Date(show.premiered).getFullYear() : null);
   const inSonarr = $derived(sonarrInstances.length > 0);
+
+  // Clean summary - strip HTML tags
+  const cleanSummary = $derived(() => {
+    if (!show.summary) return '';
+    return show.summary.replace(/<[^>]*>/g, '');
+  });
 </script>
 
 <a href="/shows/{show.id}" class={cn('block group', className)}>
   <Card.Root class="overflow-hidden transition-all hover:ring-2 hover:ring-primary/50 h-full">
-    <div class="relative aspect-[2/3] bg-muted">
+    <div class="relative aspect-[2/3] bg-muted overflow-hidden">
       {#if show.image_medium}
         <img
           src={show.image_medium}
           alt={show.name}
-          class="object-cover w-full h-full transition-transform group-hover:scale-105"
+          class="object-cover w-full h-full"
           loading="lazy"
         />
       {:else}
@@ -81,7 +87,9 @@
 
       <!-- In Sonarr indicator(s) -->
       {#if inSonarr}
-        <div class="absolute bottom-2 right-2 flex flex-col gap-1 items-end">
+        <div
+          class="absolute bottom-2 right-2 flex flex-col gap-1 items-end z-10 group-hover:opacity-0 transition-opacity duration-200"
+        >
           {#each sonarrInstances as instance (instance.configId)}
             <div
               class="flex items-center gap-1 bg-green-600 text-white text-xs font-medium px-2 py-0.5 rounded"
@@ -91,6 +99,17 @@
               <span class="max-w-20 truncate">{instance.configName}</span>
             </div>
           {/each}
+        </div>
+      {/if}
+
+      <!-- Summary overlay on hover -->
+      {#if cleanSummary()}
+        <div
+          class="absolute inset-0 bg-black/90 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end p-3 z-20 pointer-events-none"
+        >
+          <p class="text-white text-xs leading-relaxed line-clamp-6">
+            {cleanSummary()}
+          </p>
         </div>
       {/if}
     </div>
