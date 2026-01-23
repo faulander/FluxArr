@@ -8,6 +8,7 @@ export interface FilterInclude {
   types?: string[];
   ratingMin?: number;
   ratingMax?: number;
+  includeUnrated?: boolean;
   premieredAfter?: string;
   premieredBefore?: string;
   runtimeMin?: number;

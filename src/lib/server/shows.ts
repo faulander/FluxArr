@@ -76,14 +76,30 @@ export function getShows(options: ShowsQueryOptions = {}): ShowsQueryResult {
       params.push(...inc.types);
     }
 
-    if (inc.ratingMin !== undefined) {
-      conditions.push(`rating_average >= ?`);
-      params.push(inc.ratingMin);
-    }
+    if (inc.ratingMin !== undefined || inc.ratingMax !== undefined) {
+      const ratingConditions: string[] = [];
 
-    if (inc.ratingMax !== undefined) {
-      conditions.push(`rating_average <= ?`);
-      params.push(inc.ratingMax);
+      if (inc.ratingMin !== undefined && inc.ratingMax !== undefined) {
+        ratingConditions.push(`(rating_average >= ? AND rating_average <= ?)`);
+        params.push(inc.ratingMin, inc.ratingMax);
+      } else if (inc.ratingMin !== undefined) {
+        ratingConditions.push(`rating_average >= ?`);
+        params.push(inc.ratingMin);
+      } else if (inc.ratingMax !== undefined) {
+        ratingConditions.push(`rating_average <= ?`);
+        params.push(inc.ratingMax);
+      }
+
+      if (inc.includeUnrated) {
+        ratingConditions.push(`rating_average IS NULL`);
+      }
+
+      if (ratingConditions.length > 0) {
+        conditions.push(`(${ratingConditions.join(' OR ')})`);
+      }
+    } else if (inc.includeUnrated) {
+      // Only includeUnrated is set, no rating filter - no condition needed
+      // Shows with and without ratings will be included
     }
 
     if (inc.premieredAfter) {
@@ -258,13 +274,17 @@ export function getFilterOptions(): {
   const networks = query
     .all<{
       network_name: string;
-    }>(`SELECT DISTINCT network_name FROM shows WHERE network_name IS NOT NULL ORDER BY network_name`)
+    }>(
+      `SELECT DISTINCT network_name FROM shows WHERE network_name IS NOT NULL ORDER BY network_name`
+    )
     .map((r) => r.network_name);
 
   const webChannels = query
     .all<{
       web_channel_name: string;
-    }>(`SELECT DISTINCT web_channel_name FROM shows WHERE web_channel_name IS NOT NULL ORDER BY web_channel_name`)
+    }>(
+      `SELECT DISTINCT web_channel_name FROM shows WHERE web_channel_name IS NOT NULL ORDER BY web_channel_name`
+    )
     .map((r) => r.web_channel_name);
 
   const countryRows = query.all<{ code: string }>(`

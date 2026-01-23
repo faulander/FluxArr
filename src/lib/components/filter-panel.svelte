@@ -3,6 +3,7 @@
   import { Button } from '$lib/components/ui/button';
   import { Label } from '$lib/components/ui/label';
   import { Input } from '$lib/components/ui/input';
+  import { Checkbox } from '$lib/components/ui/checkbox';
   import { Separator } from '$lib/components/ui/separator';
   import { cn } from '$lib/utils';
   import type { FilterConfig, FilterInclude, FilterExclude } from '$lib/types/filter';
@@ -41,8 +42,27 @@
   let localExclude = $state<FilterExclude>({ ...filter.exclude });
   let ratingMin = $state(filter.include.ratingMin?.toString() || '');
   let ratingMax = $state(filter.include.ratingMax?.toString() || '');
+  let includeUnrated = $state(filter.include.includeUnrated ?? false);
   let premieredAfter = $state(filter.include.premieredAfter || '');
   let premieredBefore = $state(filter.include.premieredBefore || '');
+
+  // Track filter prop to detect external changes
+  let lastFilterJson = $state(JSON.stringify(filter));
+
+  // Sync local state when filter prop changes externally
+  $effect(() => {
+    const currentFilterJson = JSON.stringify(filter);
+    if (currentFilterJson !== lastFilterJson) {
+      lastFilterJson = currentFilterJson;
+      localInclude = { ...filter.include };
+      localExclude = { ...filter.exclude };
+      ratingMin = filter.include.ratingMin?.toString() || '';
+      ratingMax = filter.include.ratingMax?.toString() || '';
+      includeUnrated = filter.include.includeUnrated ?? false;
+      premieredAfter = filter.include.premieredAfter || '';
+      premieredBefore = filter.include.premieredBefore || '';
+    }
+  });
 
   // Auto-apply when in managed mode (for dialogs)
   $effect(() => {
@@ -64,6 +84,9 @@
         if (!isNaN(val) && val >= 0 && val <= 10) {
           finalFilter.include.ratingMax = val;
         }
+      }
+      if (includeUnrated) {
+        finalFilter.include.includeUnrated = true;
       }
       if (premieredAfter) {
         finalFilter.include.premieredAfter = premieredAfter;
@@ -109,6 +132,9 @@
         finalFilter.include.ratingMax = val;
       }
     }
+    if (includeUnrated) {
+      finalFilter.include.includeUnrated = true;
+    }
 
     // Parse premiered date inputs
     if (premieredAfter) {
@@ -140,6 +166,7 @@
     localExclude = {};
     ratingMin = '';
     ratingMax = '';
+    includeUnrated = false;
     premieredAfter = '';
     premieredBefore = '';
     onClear();
@@ -211,6 +238,12 @@
           class="mt-1"
         />
       </div>
+    </div>
+    <div class="flex items-center gap-2 pt-1">
+      <Checkbox id="include-unrated" bind:checked={includeUnrated} />
+      <Label for="include-unrated" class="text-sm font-normal cursor-pointer">
+        Include unrated shows
+      </Label>
     </div>
   </div>
 
