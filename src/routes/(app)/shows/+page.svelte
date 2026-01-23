@@ -299,6 +299,7 @@
         <ShowCard
           {show}
           sonarrInstances={show.thetvdb_id ? sonarrTvdbMap[show.thetvdb_id] || [] : []}
+          sonarrConfigs={data.sonarrConfigs}
         />
       {/each}
     </div>
