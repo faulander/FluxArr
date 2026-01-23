@@ -60,6 +60,33 @@ async function fetchTVMaze<T>(endpoint: string): Promise<T | null> {
   return response.json();
 }
 
+interface TVMazePerson {
+  id: number;
+  name: string;
+  birthday: string | null;
+  deathday: string | null;
+  gender: string | null;
+  country: { name: string; code: string } | null;
+  image: { medium: string; original: string } | null;
+  updated: number;
+}
+
+interface TVMazeCastMember {
+  person: TVMazePerson;
+  character: {
+    id: number;
+    name: string;
+    image: { medium: string; original: string } | null;
+  };
+  self: boolean;
+  voice: boolean;
+}
+
+interface TVMazeCrewMember {
+  type: string;
+  person: TVMazePerson;
+}
+
 interface TVMazeShow {
   id: number;
   url: string;
@@ -169,6 +196,70 @@ function saveShow(show: TVMazeShow): void {
   );
 }
 
+function savePerson(person: TVMazePerson): void {
+  query.run(
+    `INSERT INTO people (id, name, birthday, deathday, gender, country_name, country_code, image_medium, image_original, updated_at, synced_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       birthday = excluded.birthday,
+       deathday = excluded.deathday,
+       gender = excluded.gender,
+       country_name = excluded.country_name,
+       country_code = excluded.country_code,
+       image_medium = excluded.image_medium,
+       image_original = excluded.image_original,
+       updated_at = excluded.updated_at,
+       synced_at = datetime('now')`,
+    [
+      person.id,
+      person.name,
+      person.birthday,
+      person.deathday,
+      person.gender,
+      person.country?.name || null,
+      person.country?.code || null,
+      person.image?.medium || null,
+      person.image?.original || null,
+      person.updated
+    ]
+  );
+}
+
+function saveCastMember(showId: number, cast: TVMazeCastMember, sortOrder: number): void {
+  savePerson(cast.person);
+  query.run(
+    `INSERT INTO show_cast (show_id, person_id, character_name, character_image_medium, character_image_original, is_self, is_voice, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(show_id, person_id, character_name) DO UPDATE SET
+       character_image_medium = excluded.character_image_medium,
+       character_image_original = excluded.character_image_original,
+       is_self = excluded.is_self,
+       is_voice = excluded.is_voice,
+       sort_order = excluded.sort_order`,
+    [
+      showId,
+      cast.person.id,
+      cast.character.name,
+      cast.character.image?.medium || null,
+      cast.character.image?.original || null,
+      cast.self ? 1 : 0,
+      cast.voice ? 1 : 0,
+      sortOrder
+    ]
+  );
+}
+
+function saveCrewMember(showId: number, crew: TVMazeCrewMember): void {
+  savePerson(crew.person);
+  query.run(
+    `INSERT INTO show_crew (show_id, person_id, crew_type)
+     VALUES (?, ?, ?)
+     ON CONFLICT(show_id, person_id, crew_type) DO NOTHING`,
+    [showId, crew.person.id, crew.type]
+  );
+}
+
 function setSyncing(
   syncing: boolean,
   progress?: { current: number; total: number; phase: string }
@@ -224,6 +315,151 @@ export function getSyncStatus(): SyncStatus {
 export function resetSyncStatus(): void {
   query.run('UPDATE sync_status SET is_syncing = 0, sync_progress = NULL WHERE id = 1', []);
   logger.tvmaze.info('Sync status reset');
+}
+
+/**
+ * Fetch and save cast/crew for a specific show (on-demand)
+ */
+export async function fetchShowCastCrew(showId: number): Promise<{
+  cast: Array<{
+    personId: number;
+    personName: string;
+    personImage: string | null;
+    characterName: string;
+    characterImage: string | null;
+    isSelf: boolean;
+    isVoice: boolean;
+  }>;
+  crew: Array<{
+    personId: number;
+    personName: string;
+    personImage: string | null;
+    crewType: string;
+  }>;
+}> {
+  // Check if we already have cast/crew data
+  const existingCast = query.get<{ count: number }>(
+    'SELECT COUNT(*) as count FROM show_cast WHERE show_id = ?',
+    [showId]
+  );
+
+  if (existingCast && existingCast.count > 0) {
+    // Return cached data
+    return getCachedCastCrew(showId);
+  }
+
+  // Fetch from TVMaze
+  logger.tvmaze.debug(`Fetching cast/crew for show ${showId}`);
+
+  try {
+    const [castData, crewData] = await Promise.all([
+      fetchTVMaze<TVMazeCastMember[]>(`/shows/${showId}/cast`),
+      fetchTVMaze<TVMazeCrewMember[]>(`/shows/${showId}/crew`)
+    ]);
+
+    // Save cast
+    if (castData) {
+      query.transaction(() => {
+        castData.forEach((member, index) => {
+          saveCastMember(showId, member, index);
+        });
+      });
+    }
+
+    // Save crew
+    if (crewData) {
+      query.transaction(() => {
+        crewData.forEach((member) => {
+          saveCrewMember(showId, member);
+        });
+      });
+    }
+
+    return getCachedCastCrew(showId);
+  } catch (error) {
+    logger.tvmaze.error(`Failed to fetch cast/crew for show ${showId}: ${error}`);
+    return { cast: [], crew: [] };
+  }
+}
+
+function getCachedCastCrew(showId: number): {
+  cast: Array<{
+    personId: number;
+    personName: string;
+    personImage: string | null;
+    characterName: string;
+    characterImage: string | null;
+    isSelf: boolean;
+    isVoice: boolean;
+  }>;
+  crew: Array<{
+    personId: number;
+    personName: string;
+    personImage: string | null;
+    crewType: string;
+  }>;
+} {
+  const cast = query.all<{
+    person_id: number;
+    person_name: string;
+    person_image: string | null;
+    character_name: string;
+    character_image: string | null;
+    is_self: number;
+    is_voice: number;
+  }>(
+    `SELECT
+       sc.person_id, p.name as person_name, p.image_medium as person_image,
+       sc.character_name, sc.character_image_medium as character_image,
+       sc.is_self, sc.is_voice
+     FROM show_cast sc
+     JOIN people p ON sc.person_id = p.id
+     WHERE sc.show_id = ?
+     ORDER BY sc.sort_order`,
+    [showId]
+  );
+
+  const crew = query.all<{
+    person_id: number;
+    person_name: string;
+    person_image: string | null;
+    crew_type: string;
+  }>(
+    `SELECT
+       scr.person_id, p.name as person_name, p.image_medium as person_image,
+       scr.crew_type
+     FROM show_crew scr
+     JOIN people p ON scr.person_id = p.id
+     WHERE scr.show_id = ?
+     ORDER BY
+       CASE scr.crew_type
+         WHEN 'Creator' THEN 1
+         WHEN 'Executive Producer' THEN 2
+         WHEN 'Co-Executive Producer' THEN 3
+         WHEN 'Supervising Producer' THEN 4
+         WHEN 'Producer' THEN 5
+         ELSE 6
+       END`,
+    [showId]
+  );
+
+  return {
+    cast: cast.map((c) => ({
+      personId: c.person_id,
+      personName: c.person_name,
+      personImage: c.person_image,
+      characterName: c.character_name,
+      characterImage: c.character_image,
+      isSelf: c.is_self === 1,
+      isVoice: c.is_voice === 1
+    })),
+    crew: crew.map((c) => ({
+      personId: c.person_id,
+      personName: c.person_name,
+      personImage: c.person_image,
+      crewType: c.crew_type
+    }))
+  };
 }
 
 /**

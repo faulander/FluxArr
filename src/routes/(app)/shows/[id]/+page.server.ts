@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import { getShowById } from '$lib/server/shows';
 import { query } from '$lib/server/db';
 import { sonarr, type SonarrQualityProfile, type SonarrRootFolder } from '$lib/server/sonarr';
+import { fetchShowCastCrew } from '$lib/server/tvmaze-sync';
 
 interface SonarrConfig {
   id: number;
@@ -53,25 +54,35 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     }
   }
 
-  // Fetch quality profiles and root folders for each config
-  const sonarrConfigsWithOptions: SonarrConfigWithOptions[] = await Promise.all(
-    sonarrConfigs.map(async (config) => {
-      const hasShow = configsWithShow.has(config.id);
-      try {
-        const [qualityProfiles, rootFolders] = await Promise.all([
-          sonarr.getQualityProfiles(config),
-          sonarr.getRootFolders(config)
-        ]);
-        return { ...config, qualityProfiles, rootFolders, hasShow };
-      } catch (err) {
-        console.error(`Failed to fetch options for Sonarr config ${config.id}:`, err);
-        return { ...config, qualityProfiles: [], rootFolders: [], hasShow };
-      }
-    })
-  );
+  // Fetch quality profiles, root folders, and cast/crew in parallel
+  const [sonarrConfigsWithOptions, castCrew] = await Promise.all([
+    Promise.all(
+      sonarrConfigs.map(async (config) => {
+        const hasShow = configsWithShow.has(config.id);
+        try {
+          const [qualityProfiles, rootFolders] = await Promise.all([
+            sonarr.getQualityProfiles(config),
+            sonarr.getRootFolders(config)
+          ]);
+          return { ...config, qualityProfiles, rootFolders, hasShow } as SonarrConfigWithOptions;
+        } catch (err) {
+          console.error(`Failed to fetch options for Sonarr config ${config.id}:`, err);
+          return {
+            ...config,
+            qualityProfiles: [],
+            rootFolders: [],
+            hasShow
+          } as SonarrConfigWithOptions;
+        }
+      })
+    ),
+    fetchShowCastCrew(id)
+  ]);
 
   return {
     show,
-    sonarrConfigs: sonarrConfigsWithOptions
+    sonarrConfigs: sonarrConfigsWithOptions,
+    cast: castCrew.cast,
+    crew: castCrew.crew
   };
 };

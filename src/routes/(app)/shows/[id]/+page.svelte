@@ -14,7 +14,10 @@
     Info,
     Loader2,
     Check,
-    HardDrive
+    HardDrive,
+    User,
+    Users,
+    Clapperboard
   } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
@@ -464,8 +467,96 @@
 
   <Separator class="my-6" />
 
+  <!-- Cast Section -->
+  {#if data.cast.length > 0}
+    <div class="container mx-auto px-4 pb-8">
+      <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Users class="w-5 h-5" />
+        Cast
+      </h2>
+      <div
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4"
+      >
+        {#each data.cast.slice(0, 16) as member (member.personId + '-' + member.characterName)}
+          <div class="text-center group">
+            <div class="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted mb-2">
+              {#if member.personImage}
+                <img
+                  src={member.personImage}
+                  alt={member.personName}
+                  class="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              {:else}
+                <div class="w-full h-full flex items-center justify-center">
+                  <User class="w-8 h-8 text-muted-foreground" />
+                </div>
+              {/if}
+              {#if member.isVoice}
+                <Badge class="absolute top-1 right-1 text-xs px-1">Voice</Badge>
+              {/if}
+            </div>
+            <p class="font-medium text-sm truncate" title={member.personName}>
+              {member.personName}
+            </p>
+            <p class="text-xs text-muted-foreground truncate" title={member.characterName}>
+              {member.characterName}
+            </p>
+          </div>
+        {/each}
+      </div>
+      {#if data.cast.length > 16}
+        <p class="text-sm text-muted-foreground mt-4">
+          And {data.cast.length - 16} more cast members...
+        </p>
+      {/if}
+    </div>
+
+    <Separator class="my-6" />
+  {/if}
+
+  <!-- Crew Section -->
+  {#if data.crew.length > 0}
+    <div class="container mx-auto px-4 pb-8">
+      <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Clapperboard class="w-5 h-5" />
+        Crew
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {#each data.crew as member (member.personId + '-' + member.crewType)}
+          <div class="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <div class="w-12 h-12 rounded-full overflow-hidden bg-muted shrink-0">
+              {#if member.personImage}
+                <img
+                  src={member.personImage}
+                  alt={member.personName}
+                  class="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              {:else}
+                <div class="w-full h-full flex items-center justify-center">
+                  <User class="w-5 h-5 text-muted-foreground" />
+                </div>
+              {/if}
+            </div>
+            <div class="min-w-0">
+              <p class="font-medium text-sm truncate">{member.personName}</p>
+              <p class="text-xs text-muted-foreground truncate">{member.crewType}</p>
+            </div>
+          </div>
+        {/each}
+      </div>
+    </div>
+
+    <Separator class="my-6" />
+  {/if}
+
   <!-- Additional Info -->
   <div class="container mx-auto px-4 pb-12">
+    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+      <Info class="w-5 h-5" />
+      Details
+    </h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
       <div>
         <h3 class="text-sm font-medium text-muted-foreground mb-1">Type</h3>

@@ -24,6 +24,7 @@ interface JobConfig {
   id: string;
   enabled: number;
   interval_minutes: number;
+  last_run: string | null;
 }
 
 const jobStates = new Map<string, JobState>();
@@ -100,6 +101,13 @@ async function runJob(job: JobDefinition) {
   } finally {
     state.isRunning = false;
     state.lastRun = new Date();
+
+    // Persist last_run to database
+    query.run('UPDATE job_configs SET last_run = ? WHERE id = ?', [
+      state.lastRun.toISOString(),
+      job.id
+    ]);
+
     updateNextRun(job.id);
   }
 }
@@ -114,7 +122,7 @@ function updateNextRun(jobId: string) {
   }
 }
 
-function scheduleJob(job: JobDefinition) {
+function scheduleJob(job: JobDefinition, forceRun = false) {
   const config = ensureJobConfig(job);
   let state = jobStates.get(job.id);
 
@@ -128,6 +136,11 @@ function scheduleJob(job: JobDefinition) {
       nextRun: null
     };
     jobStates.set(job.id, state);
+  }
+
+  // Restore last_run from database
+  if (config.last_run) {
+    state.lastRun = new Date(config.last_run);
   }
 
   // Clear existing interval
@@ -144,11 +157,55 @@ function scheduleJob(job: JobDefinition) {
 
   const intervalMs = config.interval_minutes * 60 * 1000;
 
-  // Run immediately on startup
-  runJob(job);
+  // Calculate time until next run based on last run
+  let delayUntilFirstRun = 0;
 
-  // Schedule recurring
-  state.interval = setInterval(() => runJob(job), intervalMs);
+  if (forceRun) {
+    // Manual trigger or explicit request to run now
+    delayUntilFirstRun = 0;
+  } else if (state.lastRun) {
+    const timeSinceLastRun = Date.now() - state.lastRun.getTime();
+    const timeUntilNextRun = intervalMs - timeSinceLastRun;
+
+    if (timeUntilNextRun > 0) {
+      // Not due yet, wait until next scheduled time
+      delayUntilFirstRun = timeUntilNextRun;
+      logger.background.info(
+        `${job.name} last ran ${Math.round(timeSinceLastRun / 60000)} min ago, next run in ${Math.round(timeUntilNextRun / 60000)} min`
+      );
+    } else {
+      // Overdue, run soon (small delay to avoid all jobs starting at once)
+      delayUntilFirstRun = Math.random() * 5000;
+      logger.background.info(`${job.name} is overdue, running shortly`);
+    }
+  } else {
+    // Never run before, run soon
+    delayUntilFirstRun = Math.random() * 5000;
+    logger.background.info(`${job.name} has never run, starting shortly`);
+  }
+
+  // Update next run time
+  state.nextRun = new Date(Date.now() + delayUntilFirstRun);
+
+  // Schedule first run
+  if (delayUntilFirstRun > 0) {
+    setTimeout(() => {
+      runJob(job);
+      // After first run completes, schedule recurring
+      const currentState = jobStates.get(job.id);
+      if (currentState && !currentState.interval) {
+        currentState.interval = setInterval(() => runJob(job), intervalMs);
+      }
+    }, delayUntilFirstRun);
+  } else {
+    runJob(job);
+  }
+
+  // Schedule recurring (only if not waiting for delayed first run)
+  if (delayUntilFirstRun === 0) {
+    state.interval = setInterval(() => runJob(job), intervalMs);
+  }
+
   logger.background.info(`${job.name} scheduled every ${config.interval_minutes} minutes`);
 }
 
@@ -168,6 +225,7 @@ export function stopBackgroundJobs() {
       clearInterval(state.interval);
       state.interval = null;
     }
+    state.nextRun = null;
   }
 }
 

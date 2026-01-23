@@ -23,12 +23,14 @@ export function getShows(options: ShowsQueryOptions = {}): ShowsQueryResult {
   const conditions: string[] = [];
   const params: unknown[] = [];
 
-  // Full-text search
+  // Full-text search with fallback to LIKE for partial matches
   if (search && search.trim()) {
-    conditions.push(`id IN (SELECT rowid FROM shows_fts WHERE shows_fts MATCH ?)`);
-    // Escape special FTS5 characters and add prefix matching
-    const searchTerm = search.trim().replace(/['"*]/g, '').split(/\s+/).join('* ') + '*';
-    params.push(searchTerm);
+    const searchTerm = search.trim();
+    // Use FTS5 for prefix matching OR LIKE for contains matching
+    // This handles both "into" (prefix match) and "badlands" (contains match for "Into the Badlands")
+    const ftsSearchTerm = searchTerm.replace(/['"*]/g, '').split(/\s+/).join('* ') + '*';
+    conditions.push(`(id IN (SELECT rowid FROM shows_fts WHERE shows_fts MATCH ?) OR name LIKE ?)`);
+    params.push(ftsSearchTerm, `%${searchTerm}%`);
   }
 
   // Apply inclusion filters
@@ -110,7 +112,9 @@ export function getShows(options: ShowsQueryOptions = {}): ShowsQueryResult {
     const exc = filter.exclude;
 
     if (exc.languages?.length) {
-      conditions.push(`(language IS NULL OR language NOT IN (${exc.languages.map(() => '?').join(', ')}))`);
+      conditions.push(
+        `(language IS NULL OR language NOT IN (${exc.languages.map(() => '?').join(', ')}))`
+      );
       params.push(...exc.languages);
     }
 
@@ -123,7 +127,9 @@ export function getShows(options: ShowsQueryOptions = {}): ShowsQueryResult {
     }
 
     if (exc.status?.length) {
-      conditions.push(`(status IS NULL OR status NOT IN (${exc.status.map(() => '?').join(', ')}))`);
+      conditions.push(
+        `(status IS NULL OR status NOT IN (${exc.status.map(() => '?').join(', ')}))`
+      );
       params.push(...exc.status);
     }
 
@@ -223,7 +229,9 @@ export function getFilterOptions(): {
   types: string[];
 } {
   const languages = query
-    .all<{ language: string }>(`SELECT DISTINCT language FROM shows WHERE language IS NOT NULL ORDER BY language`)
+    .all<{
+      language: string;
+    }>(`SELECT DISTINCT language FROM shows WHERE language IS NOT NULL ORDER BY language`)
     .map((r) => r.language);
 
   // Genres are stored as JSON arrays, need to extract unique values
@@ -242,19 +250,21 @@ export function getFilterOptions(): {
   const genres = Array.from(genreSet).sort();
 
   const status = query
-    .all<{ status: string }>(`SELECT DISTINCT status FROM shows WHERE status IS NOT NULL ORDER BY status`)
+    .all<{
+      status: string;
+    }>(`SELECT DISTINCT status FROM shows WHERE status IS NOT NULL ORDER BY status`)
     .map((r) => r.status);
 
   const networks = query
-    .all<{ network_name: string }>(
-      `SELECT DISTINCT network_name FROM shows WHERE network_name IS NOT NULL ORDER BY network_name`
-    )
+    .all<{
+      network_name: string;
+    }>(`SELECT DISTINCT network_name FROM shows WHERE network_name IS NOT NULL ORDER BY network_name`)
     .map((r) => r.network_name);
 
   const webChannels = query
-    .all<{ web_channel_name: string }>(
-      `SELECT DISTINCT web_channel_name FROM shows WHERE web_channel_name IS NOT NULL ORDER BY web_channel_name`
-    )
+    .all<{
+      web_channel_name: string;
+    }>(`SELECT DISTINCT web_channel_name FROM shows WHERE web_channel_name IS NOT NULL ORDER BY web_channel_name`)
     .map((r) => r.web_channel_name);
 
   const countryRows = query.all<{ code: string }>(`

@@ -14,47 +14,62 @@
 
   let { data }: { data: PageData } = $props();
 
-  let searchInput = $state(data.currentSearch || '');
   let filterOpen = $state(false);
-  let currentFilter = $state<FilterConfig>(data.currentFilter || { include: {}, exclude: {} });
-
-  // Infinite scroll state
-  let shows = $state<Show[]>(data.shows);
-  let currentPage = $state(1);
-  let isLoading = $state(false);
-  let hasMore = $state(data.shows.length < data.total);
   let loadMoreTrigger = $state<HTMLDivElement | null>(null);
 
-  // Sonarr library lookup - map of TVDB ID to instance info
+  // Local state for search input
+  let searchInput = $state(data.currentSearch || '');
+
+  // Infinite scroll state
+  let extraShows = $state<Show[]>([]);
+  let currentPage = $state(1);
+  let isLoading = $state(false);
+
+  // Derived values
+  const allShows = $derived([...data.shows, ...extraShows]);
+  const hasMore = $derived(allShows.length < data.total);
+  const currentFilter = $derived<FilterConfig>(data.currentFilter || { include: {}, exclude: {} });
   const sonarrTvdbMap = $derived(data.sonarrTvdbMap || {});
 
-  // Reset shows when URL changes (search/filter)
+  // Create a signature from the data to detect changes
+  const dataSignature = $derived(
+    `${data.currentSearch || ''}-${JSON.stringify(data.currentFilter || {})}-${data.total}`
+  );
+
+  // Track last signature to detect changes
+  let lastDataSignature = '';
+
+  // Reset state when server data changes
   $effect(() => {
-    shows = data.shows;
-    currentPage = 1;
-    hasMore = data.shows.length < data.total;
+    if (dataSignature !== lastDataSignature) {
+      lastDataSignature = dataSignature;
+      extraShows = [];
+      currentPage = 1;
+      searchInput = data.currentSearch || '';
+    }
   });
 
   // Intersection Observer for infinite scroll
   $effect(() => {
-    if (!loadMoreTrigger) return;
+    const trigger = loadMoreTrigger;
+    if (!trigger) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
+        if (entries[0].isIntersecting) {
           loadMore();
         }
       },
       { rootMargin: '200px' }
     );
 
-    observer.observe(loadMoreTrigger);
+    observer.observe(trigger);
 
     return () => observer.disconnect();
   });
 
   async function loadMore() {
-    if (isLoading || !hasMore) return;
+    if (isLoading || allShows.length >= data.total) return;
 
     isLoading = true;
     const nextPage = currentPage + 1;
@@ -75,11 +90,8 @@
       const result = await response.json();
 
       if (result.shows?.length > 0) {
-        shows = [...shows, ...result.shows];
+        extraShows = [...extraShows, ...result.shows];
         currentPage = nextPage;
-        hasMore = shows.length < result.total;
-      } else {
-        hasMore = false;
       }
     } catch (error) {
       console.error('Failed to load more shows:', error);
@@ -116,50 +128,41 @@
     return count;
   });
 
-  function updateUrl(params: { search?: string; filter?: FilterConfig }) {
-    const url = new URL($page.url);
-
-    if (params.search !== undefined) {
-      if (params.search) {
-        url.searchParams.set('search', params.search);
-      } else {
-        url.searchParams.delete('search');
-      }
-    }
-
-    if (params.filter !== undefined) {
-      const hasFilters =
-        Object.keys(params.filter.include).length > 0 ||
-        Object.keys(params.filter.exclude).length > 0;
-      if (hasFilters) {
-        url.searchParams.set('filter', JSON.stringify(params.filter));
-      } else {
-        url.searchParams.delete('filter');
-      }
-    }
-
-    goto(url.toString(), { keepFocus: true, invalidateAll: true });
-  }
-
   function handleSearch(e: Event) {
     e.preventDefault();
-    updateUrl({ search: searchInput });
+    const url = new URL($page.url);
+    if (searchInput.trim()) {
+      url.searchParams.set('search', searchInput.trim());
+    } else {
+      url.searchParams.delete('search');
+    }
+    goto(url.toString(), { invalidateAll: true });
   }
 
   function clearSearch() {
     searchInput = '';
-    updateUrl({ search: '' });
+    const url = new URL($page.url);
+    url.searchParams.delete('search');
+    goto(url.toString(), { invalidateAll: true });
   }
 
   function applyFilter(filter: FilterConfig) {
-    currentFilter = filter;
-    updateUrl({ filter });
+    const url = new URL($page.url);
+    const hasFilters =
+      Object.keys(filter.include).length > 0 || Object.keys(filter.exclude).length > 0;
+    if (hasFilters) {
+      url.searchParams.set('filter', JSON.stringify(filter));
+    } else {
+      url.searchParams.delete('filter');
+    }
+    goto(url.toString(), { invalidateAll: true });
     filterOpen = false;
   }
 
   function clearFilters() {
-    currentFilter = { include: {}, exclude: {} };
-    updateUrl({ filter: { include: {}, exclude: {} } });
+    const url = new URL($page.url);
+    url.searchParams.set('filter', '{}');
+    goto(url.toString(), { invalidateAll: true });
   }
 </script>
 
@@ -238,7 +241,13 @@
   <!-- Active filters display -->
   {#if activeFilterCount() > 0}
     <div class="flex flex-wrap items-center gap-2">
-      <span class="text-sm text-muted-foreground">Active filters:</span>
+      <span class="text-sm text-muted-foreground">
+        {#if data.defaultFilterName && !$page.url.searchParams.has('filter')}
+          Default filter "{data.defaultFilterName}":
+        {:else}
+          Active filters:
+        {/if}
+      </span>
       {#if currentFilter.include.languages?.length}
         <Badge variant="outline" class="gap-1">
           Language: {currentFilter.include.languages.join(', ')}
@@ -271,7 +280,7 @@
   {/if}
 
   <!-- Shows Grid -->
-  {#if shows.length === 0 && !isLoading}
+  {#if allShows.length === 0 && !isLoading}
     <div class="flex flex-col items-center justify-center py-12 text-center">
       <AlertCircle class="w-12 h-12 text-muted-foreground mb-4" />
       <h3 class="text-lg font-medium">No shows found</h3>
@@ -286,7 +295,7 @@
     </div>
   {:else}
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-      {#each shows as show (show.id)}
+      {#each allShows as show (show.id)}
         <ShowCard
           {show}
           sonarrInstances={show.thetvdb_id ? sonarrTvdbMap[show.thetvdb_id] || [] : []}
@@ -303,9 +312,9 @@
         </div>
       {:else if hasMore}
         <Button variant="outline" onclick={loadMore}>Load more</Button>
-      {:else if shows.length > 0}
+      {:else if allShows.length > 0}
         <p class="text-sm text-muted-foreground">
-          Showing all {shows.length.toLocaleString()} results
+          Showing all {allShows.length.toLocaleString()} results
         </p>
       {/if}
     </div>
