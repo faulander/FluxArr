@@ -269,6 +269,18 @@ async function fetchIMDBRating(imdbId: string, apiKey: string): Promise<number |
   }
 }
 
+/**
+ * Smart IMDB ratings sync with priority-based updates
+ *
+ * Always uses up to the daily limit (1000 requests). Priority determines ORDER:
+ * 1. Shows with no rating yet (never fetched)
+ * 2. Running/In Development shows (sorted by staleness)
+ * 3. Recently ended shows within 2 years (sorted by staleness)
+ * 4. Older ended shows 2-5 years (sorted by staleness)
+ * 5. Very old shows 5+ years (sorted by staleness, lowest priority)
+ *
+ * Within each priority, shows are sorted by how long since last update.
+ */
 async function syncIMDBRatings(
   batchSize: number = 100
 ): Promise<{ updated: number; errors: number }> {
@@ -279,33 +291,74 @@ async function syncIMDBRatings(
     return { updated: 0, errors: 0 };
   }
 
-  console.log('Starting IMDB ratings sync...');
+  console.log('Starting smart IMDB ratings sync...');
   setSyncing(true, { current: 0, total: 0, phase: 'imdb' });
 
-  // Get shows with IMDB ID but no IMDB rating
+  // Priority-based query - always fill the batch, priority determines order
+  // Priority 1: Never fetched (most important)
+  // Priority 2: Running/In Development (ratings actively changing)
+  // Priority 3: Recently ended <2 years (ratings still settling)
+  // Priority 4: Ended 2-5 years ago (ratings mostly stable)
+  // Priority 5: Ended 5+ years ago (lowest priority but still updated eventually)
   const shows = db
     .prepare(
       `
-    SELECT id, imdb_id FROM shows
+    SELECT id, imdb_id, name, status, ended, imdb_rating, imdb_rating_updated_at,
+      CASE
+        -- Priority 1: Never fetched (no rating yet)
+        WHEN imdb_rating IS NULL THEN 1
+        -- Priority 2: Running or In Development shows
+        WHEN status IN ('Running', 'In Development', 'To Be Determined') THEN 2
+        -- Priority 3: Ended within 2 years
+        WHEN status = 'Ended' AND ended IS NOT NULL AND ended >= date('now', '-2 years') THEN 3
+        -- Priority 4: Ended 2-5 years ago
+        WHEN status = 'Ended' AND ended IS NOT NULL AND ended >= date('now', '-5 years') THEN 4
+        -- Priority 5: Everything else (ended 5+ years or unknown)
+        ELSE 5
+      END as priority
+    FROM shows
     WHERE imdb_id IS NOT NULL
-    AND imdb_id != ''
-    AND imdb_rating IS NULL
+      AND imdb_id != ''
+    ORDER BY
+      priority ASC,
+      imdb_rating_updated_at ASC NULLS FIRST
     LIMIT ?
   `
     )
-    .all(batchSize) as { id: number; imdb_id: string }[];
+    .all(batchSize) as {
+    id: number;
+    imdb_id: string;
+    name: string;
+    status: string;
+    priority: number;
+  }[];
 
   if (shows.length === 0) {
-    console.log('No shows need IMDB ratings');
+    console.log('No shows with IMDB IDs found');
     return { updated: 0, errors: 0 };
   }
 
-  console.log(`Fetching IMDB ratings for ${shows.length} shows...`);
+  // Log priority breakdown
+  const priorityCounts = shows.reduce(
+    (acc, s) => {
+      acc[s.priority] = (acc[s.priority] || 0) + 1;
+      return acc;
+    },
+    {} as Record<number, number>
+  );
+  console.log(`Fetching IMDB ratings for ${shows.length} shows (sorted by priority):`);
+  console.log(`  - New (never fetched): ${priorityCounts[1] || 0}`);
+  console.log(`  - Running/In Development: ${priorityCounts[2] || 0}`);
+  console.log(`  - Recently ended (<2 years): ${priorityCounts[3] || 0}`);
+  console.log(`  - Older ended (2-5 years): ${priorityCounts[4] || 0}`);
+  console.log(`  - Very old (5+ years): ${priorityCounts[5] || 0}`);
 
   let updated = 0;
   let errors = 0;
 
-  const updateStmt = db.prepare('UPDATE shows SET imdb_rating = ? WHERE id = ?');
+  const updateStmt = db.prepare(
+    "UPDATE shows SET imdb_rating = ?, imdb_rating_updated_at = datetime('now') WHERE id = ?"
+  );
 
   for (let i = 0; i < shows.length; i++) {
     const show = shows[i];
@@ -315,6 +368,10 @@ async function syncIMDBRatings(
       updateStmt.run(rating, show.id);
       updated++;
     } else {
+      // Still update the timestamp even on error/N/A to avoid retrying immediately
+      db.prepare("UPDATE shows SET imdb_rating_updated_at = datetime('now') WHERE id = ?").run(
+        show.id
+      );
       errors++;
     }
 

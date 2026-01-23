@@ -33,10 +33,10 @@ export function saveOMDBConfig(apiKey: string, enabled: boolean): void {
       [apiKey, enabled ? 1 : 0]
     );
   } else {
-    query.run(
-      `INSERT INTO omdb_config (id, api_key, enabled) VALUES (1, ?, ?)`,
-      [apiKey, enabled ? 1 : 0]
-    );
+    query.run(`INSERT INTO omdb_config (id, api_key, enabled) VALUES (1, ?, ?)`, [
+      apiKey,
+      enabled ? 1 : 0
+    ]);
   }
 }
 
@@ -45,7 +45,9 @@ export function isOMDBEnabled(): boolean {
   return config !== null && config.enabled === 1 && config.api_key.length > 0;
 }
 
-export async function testOMDBConnection(apiKey: string): Promise<{ success: boolean; error?: string }> {
+export async function testOMDBConnection(
+  apiKey: string
+): Promise<{ success: boolean; error?: string }> {
   try {
     // Test with a known IMDB ID (Breaking Bad)
     const response = await fetch(`https://www.omdbapi.com/?apikey=${apiKey}&i=tt0903747`);
@@ -76,21 +78,49 @@ export async function fetchIMDBRating(imdbId: string, apiKey: string): Promise<n
   }
 }
 
-// Batch fetch IMDB ratings for shows that have IMDB IDs but no IMDB rating
-export async function syncIMDBRatings(limit: number = 100): Promise<{ updated: number; errors: number }> {
+/**
+ * Smart IMDB ratings sync with priority-based updates
+ *
+ * Always uses up to the limit. Priority determines ORDER:
+ * 1. Shows with no rating yet (never fetched)
+ * 2. Running/In Development shows (sorted by staleness)
+ * 3. Recently ended shows within 2 years (sorted by staleness)
+ * 4. Older ended shows 2-5 years (sorted by staleness)
+ * 5. Very old shows 5+ years (sorted by staleness, lowest priority)
+ *
+ * Within each priority, shows are sorted by how long since last update.
+ */
+export async function syncIMDBRatings(
+  limit: number = 100
+): Promise<{ updated: number; errors: number }> {
   const config = getOMDBConfig();
 
   if (!config || !config.enabled || !config.api_key) {
     return { updated: 0, errors: 0 };
   }
 
-  // Get shows with IMDB ID but no IMDB rating
-  const shows = query.all<{ id: number; imdb_id: string }>(
-    `SELECT id, imdb_id FROM shows
-     WHERE imdb_id IS NOT NULL
-     AND imdb_id != ''
-     AND imdb_rating IS NULL
-     LIMIT ?`,
+  // Priority-based query - same logic as sync-worker.ts
+  const shows = query.all<{ id: number; imdb_id: string; priority: number }>(
+    `SELECT id, imdb_id,
+      CASE
+        -- Priority 1: Never fetched (no rating yet)
+        WHEN imdb_rating IS NULL THEN 1
+        -- Priority 2: Running or In Development shows
+        WHEN status IN ('Running', 'In Development', 'To Be Determined') THEN 2
+        -- Priority 3: Ended within 2 years
+        WHEN status = 'Ended' AND ended IS NOT NULL AND ended >= date('now', '-2 years') THEN 3
+        -- Priority 4: Ended 2-5 years ago
+        WHEN status = 'Ended' AND ended IS NOT NULL AND ended >= date('now', '-5 years') THEN 4
+        -- Priority 5: Everything else (ended 5+ years or unknown)
+        ELSE 5
+      END as priority
+    FROM shows
+    WHERE imdb_id IS NOT NULL
+      AND imdb_id != ''
+    ORDER BY
+      priority ASC,
+      imdb_rating_updated_at ASC NULLS FIRST
+    LIMIT ?`,
     [limit]
   );
 
@@ -101,15 +131,21 @@ export async function syncIMDBRatings(limit: number = 100): Promise<{ updated: n
     const rating = await fetchIMDBRating(show.imdb_id, config.api_key);
 
     if (rating !== null) {
-      query.run(`UPDATE shows SET imdb_rating = ? WHERE id = ?`, [rating, show.id]);
+      query.run(
+        `UPDATE shows SET imdb_rating = ?, imdb_rating_updated_at = datetime('now') WHERE id = ?`,
+        [rating, show.id]
+      );
       updated++;
     } else {
+      // Still update timestamp to avoid immediate retry
+      query.run(`UPDATE shows SET imdb_rating_updated_at = datetime('now') WHERE id = ?`, [
+        show.id
+      ]);
       errors++;
     }
 
     // Rate limiting: OMDB free tier allows 1000 requests/day
-    // Add a small delay to be respectful
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
   return { updated, errors };

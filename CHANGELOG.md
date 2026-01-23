@@ -15,7 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Test button to verify API key before saving
   - IMDB ratings displayed on show cards (primary) and TVMaze ratings (secondary)
   - Show detail pages display both ratings with labels
-  - Background sync fetches IMDB ratings for shows with IMDB IDs
+  - Smart priority-based IMDB sync that always uses the full daily quota (1000 requests):
+    - Priority 1: Shows never fetched (no rating yet)
+    - Priority 2: Running/In Development shows
+    - Priority 3: Recently ended (< 2 years)
+    - Priority 4: Older ended (2-5 years)
+    - Priority 5: Very old shows (5+ years)
+    - Within each priority, most stale shows are updated first
   - Manual IMDB sync available via `npm run sync -- --imdb`
 
 - **Connections Settings**
