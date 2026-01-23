@@ -6,8 +6,8 @@ services:
     ports:
       - '3001:3000'
     volumes:
-      # Persist database
-      - fluxarr-data:/app/data
+      # Persist database (bind mount to local directory)
+      - ./data:/app/data
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -25,5 +25,3 @@ services:
 networks:
   hf_proxy_network:
     external: true
-volumes:
-  fluxarr-data:
