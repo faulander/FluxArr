@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { sonarr, getSonarrConfig, SonarrError } from '$lib/server/sonarr';
+import { query } from '$lib/server/db';
 
 // POST - Add series to Sonarr
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -13,7 +14,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ error: 'You do not have permission to add shows to Sonarr' }, { status: 403 });
   }
 
-  const { configId, tvdbId, title, qualityProfileId, rootFolderPath } = await request.json();
+  const { configId, tvdbId, title, qualityProfileId, rootFolderPath, showId } =
+    await request.json();
 
   if (!configId || !tvdbId) {
     return json({ error: 'Config ID and TVDB ID are required' }, { status: 400 });
@@ -39,6 +41,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       searchForMissingEpisodes: true
     });
 
+    // Track the request in our database
+    if (showId) {
+      query.run(
+        `INSERT INTO requests (user_id, show_id, sonarr_config_id, sonarr_series_id, tvdb_id, status)
+         VALUES (?, ?, ?, ?, ?, 'added')
+         ON CONFLICT DO NOTHING`,
+        [locals.user.id, showId, configId, series.id, tvdbId]
+      );
+    }
+
     return json({
       success: true,
       series: {
@@ -49,6 +61,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     });
   } catch (error) {
     console.error('Failed to add series to Sonarr:', error);
+
+    // Track failed request
+    if (showId) {
+      query.run(
+        `INSERT INTO requests (user_id, show_id, sonarr_config_id, tvdb_id, status)
+         VALUES (?, ?, ?, ?, 'failed')
+         ON CONFLICT DO NOTHING`,
+        [locals.user.id, showId, configId, tvdbId]
+      );
+    }
 
     if (error instanceof SonarrError) {
       return json({ error: error.message }, { status: error.status || 500 });

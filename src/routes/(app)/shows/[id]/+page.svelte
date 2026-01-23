@@ -171,6 +171,7 @@
           configId: parseInt(selectedConfigId, 10),
           tvdbId: show.thetvdb_id,
           title: show.name,
+          showId: show.id,
           qualityProfileId: parseInt(selectedQualityProfileId, 10),
           rootFolderPath: rootFolder.path
         })
