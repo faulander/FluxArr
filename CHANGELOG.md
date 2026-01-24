@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-01-24
+
+### Added
+
+- **Changes Page**
+  - New "Changes" section in navigation to track TV show updates
+  - Displays changes detected during incremental sync: new shows, status changes, rating changes, name changes, network changes, premiere dates
+  - Changes grouped by date with show image, description, and timestamp
+  - Click any change to navigate to the show detail page
+  - Pagination for browsing through change history
+  - Changes automatically cleaned up after 30 days
+
+### Fixed
+
+- "Add to Sonarr" overlay button now uses custom highlight color instead of hardcoded green
+
 ## [0.3.0] - 2025-01-23
 
 ### Added
@@ -124,7 +140,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shadcn-svelte UI components
 - Docker support with health checks
 
-[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/yourusername/fluxarr/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/yourusername/fluxarr/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/yourusername/fluxarr/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/yourusername/fluxarr/compare/v0.1.0...v0.2.0

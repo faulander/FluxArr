@@ -1,7 +1,18 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { Tv, Filter, Settings, Users, Menu, LogOut, Moon, Sun, ListChecks } from '@lucide/svelte';
+  import {
+    Tv,
+    Filter,
+    Settings,
+    Users,
+    Menu,
+    LogOut,
+    Moon,
+    Sun,
+    ListChecks,
+    History
+  } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import * as Avatar from '$lib/components/ui/avatar';
@@ -47,6 +58,7 @@
   const navItems = [
     { href: '/shows', label: 'Discover', icon: Tv },
     { href: '/requests', label: 'Requests', icon: ListChecks },
+    { href: '/changes', label: 'Changes', icon: History },
     { href: '/filters', label: 'Filters', icon: Filter },
     { href: '/settings', label: 'Settings', icon: Settings }
   ];

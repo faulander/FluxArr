@@ -119,7 +119,91 @@ interface TVMazeShow {
   updated: number;
 }
 
-function saveShow(show: TVMazeShow): void {
+interface ExistingShow {
+  id: number;
+  name: string;
+  status: string;
+  rating_average: number | null;
+  premiered: string | null;
+  ended: string | null;
+  network_name: string | null;
+  web_channel_name: string | null;
+  genres: string | null;
+}
+
+function logShowChange(
+  showId: number,
+  changeType: string,
+  fieldName: string | null,
+  oldValue: string | null,
+  newValue: string | null
+): void {
+  query.run(
+    `INSERT INTO show_changes (show_id, change_type, field_name, old_value, new_value)
+     VALUES (?, ?, ?, ?, ?)`,
+    [showId, changeType, fieldName, oldValue, newValue]
+  );
+}
+
+function detectAndLogChanges(show: TVMazeShow, existing: ExistingShow | undefined): void {
+  if (!existing) {
+    // New show
+    logShowChange(show.id, 'new', null, null, show.name);
+    return;
+  }
+
+  // Check for status change
+  if (existing.status !== show.status) {
+    const changeType = show.status === 'Ended' ? 'ended' : 'status_change';
+    logShowChange(show.id, changeType, 'status', existing.status, show.status);
+  }
+
+  // Check for rating change (only if significant - more than 0.3 difference)
+  const oldRating = existing.rating_average;
+  const newRating = show.rating.average;
+  if (oldRating !== newRating) {
+    if (oldRating === null && newRating !== null) {
+      logShowChange(show.id, 'rating_change', 'rating_average', null, newRating.toString());
+    } else if (oldRating !== null && newRating !== null && Math.abs(oldRating - newRating) >= 0.3) {
+      logShowChange(
+        show.id,
+        'rating_change',
+        'rating_average',
+        oldRating.toString(),
+        newRating.toString()
+      );
+    }
+  }
+
+  // Check for name change
+  if (existing.name !== show.name) {
+    logShowChange(show.id, 'updated', 'name', existing.name, show.name);
+  }
+
+  // Check for network change
+  const newNetwork = show.network?.name || show.webChannel?.name || null;
+  const oldNetwork = existing.network_name || existing.web_channel_name || null;
+  if (oldNetwork !== newNetwork && newNetwork) {
+    logShowChange(show.id, 'updated', 'network', oldNetwork, newNetwork);
+  }
+
+  // Check for premiere date added
+  if (!existing.premiered && show.premiered) {
+    logShowChange(show.id, 'updated', 'premiered', null, show.premiered);
+  }
+}
+
+function saveShow(show: TVMazeShow, trackChanges: boolean = false): void {
+  // Optionally detect changes before saving
+  if (trackChanges) {
+    const existing = query.get<ExistingShow>(
+      `SELECT id, name, status, rating_average, premiered, ended, network_name, web_channel_name, genres
+       FROM shows WHERE id = ?`,
+      [show.id]
+    );
+    detectAndLogChanges(show, existing);
+  }
+
   query.run(
     `INSERT INTO shows (
       id, name, slug, type, language, genres, status, runtime, average_runtime,
@@ -462,6 +546,75 @@ function getCachedCastCrew(showId: number): {
   };
 }
 
+export interface ShowChange {
+  id: number;
+  showId: number;
+  showName: string;
+  showImage: string | null;
+  changeType: string;
+  fieldName: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  detectedAt: string;
+}
+
+/**
+ * Get recent show changes with show details
+ */
+export function getRecentChanges(limit: number = 100, offset: number = 0): ShowChange[] {
+  const changes = query.all<{
+    id: number;
+    show_id: number;
+    show_name: string;
+    show_image: string | null;
+    change_type: string;
+    field_name: string | null;
+    old_value: string | null;
+    new_value: string | null;
+    detected_at: string;
+  }>(
+    `SELECT
+       sc.id, sc.show_id, s.name as show_name, s.image_medium as show_image,
+       sc.change_type, sc.field_name, sc.old_value, sc.new_value, sc.detected_at
+     FROM show_changes sc
+     JOIN shows s ON sc.show_id = s.id
+     ORDER BY sc.detected_at DESC
+     LIMIT ? OFFSET ?`,
+    [limit, offset]
+  );
+
+  return changes.map((c) => ({
+    id: c.id,
+    showId: c.show_id,
+    showName: c.show_name,
+    showImage: c.show_image,
+    changeType: c.change_type,
+    fieldName: c.field_name,
+    oldValue: c.old_value,
+    newValue: c.new_value,
+    detectedAt: c.detected_at
+  }));
+}
+
+/**
+ * Get total count of changes
+ */
+export function getChangesCount(): number {
+  const result = query.get<{ count: number }>('SELECT COUNT(*) as count FROM show_changes');
+  return result?.count || 0;
+}
+
+/**
+ * Clear old changes (keep last 30 days)
+ */
+export function cleanupOldChanges(): number {
+  const result = query.run(
+    `DELETE FROM show_changes WHERE detected_at < datetime('now', '-30 days')`,
+    []
+  );
+  return result.changes;
+}
+
 /**
  * Incremental sync - fetches only shows updated in the last day
  */
@@ -500,7 +653,7 @@ export async function runIncrementalSync(): Promise<{ updated: number; total: nu
     for (const id of showIds) {
       const show = await fetchTVMaze<TVMazeShow>(`/shows/${id}`);
       if (show) {
-        saveShow(show);
+        saveShow(show, true); // Track changes during incremental sync
       }
       processed++;
 
