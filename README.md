@@ -49,7 +49,7 @@ FluxArr pulls TV show data from TVMaze and presents it in a beautiful, searchabl
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/fluxarr.git
+git clone https://github.com/faulander/fluxarr.git
 cd fluxarr
 
 # Install dependencies
