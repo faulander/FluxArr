@@ -133,6 +133,7 @@
           configId: parseInt(selectedConfigId),
           tvdbId: show.thetvdb_id,
           title: show.name,
+          showId: show.id,
           qualityProfileId: parseInt(selectedQualityProfile),
           rootFolderPath: selectedConfig?.rootFolders.find(
             (f) => f.id.toString() === selectedRootFolder

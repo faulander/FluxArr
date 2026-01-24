@@ -16,7 +16,9 @@
     "format:check": "prettier --check .",
     "sync": "npx tsx scripts/sync-worker.ts",
     "sync:full": "npx tsx scripts/sync-worker.ts --full",
-    "db:migrate": "npx tsx -e \"import { migrate } from './src/lib/server/db.ts'; migrate();\""
+    "db:migrate": "npx tsx -e \"import { migrate } from './src/lib/server/db.ts'; migrate();\"",
+    "db:down": "scp hf@192.168.42.167:/mnt/HD4/PROJECTS/fluxarr/data/fluxarr.db ./data/fluxarr.db",
+    "db:up": "scp ./data/fluxarr.db hf@192.168.42.167:/mnt/HD4/PROJECTS/fluxarr/data/fluxarr.db"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
