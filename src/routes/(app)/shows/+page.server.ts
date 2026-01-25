@@ -22,9 +22,22 @@ interface SonarrConfigForCard {
   rootFolders: { id: number; path: string }[];
 }
 
+type SortOption = 'rating' | 'name' | 'premiered' | 'updated';
+type SortOrder = 'asc' | 'desc';
+
 export const load: PageServerLoad = async ({ url, locals }) => {
   const page = parseInt(url.searchParams.get('page') || '1', 10);
   const search = url.searchParams.get('search') || undefined;
+
+  // Parse sort from URL
+  const sortParam = url.searchParams.get('sort') as SortOption | null;
+  const orderParam = url.searchParams.get('order') as SortOrder | null;
+  const currentSort: SortOption = ['rating', 'name', 'premiered', 'updated'].includes(
+    sortParam || ''
+  )
+    ? (sortParam as SortOption)
+    : 'rating';
+  const currentSortOrder: SortOrder = orderParam === 'asc' ? 'asc' : 'desc';
 
   // Parse filter from URL
   let filter: FilterConfig | undefined;
@@ -68,7 +81,15 @@ export const load: PageServerLoad = async ({ url, locals }) => {
     }
   }
 
-  const result = getShows({ filter, page, limit: 24, search });
+  // Build the filter with sort options
+  const filterWithSort: FilterConfig = {
+    include: filter?.include || {},
+    exclude: filter?.exclude || {},
+    sortBy: currentSort,
+    sortOrder: currentSortOrder
+  };
+
+  const result = getShows({ filter: filterWithSort, page, limit: 24, search });
   const filterOptions = getFilterOptions();
   const syncStatus = getSyncStatus();
 
@@ -123,6 +144,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
     syncStatus,
     currentFilter: filter,
     currentSearch: search,
+    currentSort,
+    currentSortOrder,
     defaultFilterName,
     sonarrTvdbMap,
     sonarrConfigs

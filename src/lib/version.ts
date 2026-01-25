@@ -4,5 +4,5 @@
 // - MINOR: backwards compatible functionality additions
 // - PATCH: backwards compatible bug fixes
 
-export const VERSION = '0.3.1';
-export const VERSION_NAME = 'Changes Tracking';
+export const VERSION = '0.3.2';
+export const VERSION_NAME = 'Sort & Discover';

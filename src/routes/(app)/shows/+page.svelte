@@ -1,16 +1,36 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { Search, Filter, RefreshCw, AlertCircle, X, Loader2 } from '@lucide/svelte';
+  import {
+    Search,
+    Filter,
+    RefreshCw,
+    AlertCircle,
+    X,
+    Loader2,
+    ArrowUpDown,
+    Check
+  } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import { Badge } from '$lib/components/ui/badge';
   import * as Sheet from '$lib/components/ui/sheet';
+  import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
   import ShowCard from '$lib/components/show-card.svelte';
   import FilterPanel from '$lib/components/filter-panel.svelte';
   import type { PageData } from './$types';
   import type { FilterConfig } from '$lib/types/filter';
   import type { Show } from '$lib/types';
+
+  type SortOption = 'rating' | 'name' | 'premiered' | 'updated';
+  type SortOrder = 'asc' | 'desc';
+
+  const sortOptions: { value: SortOption; label: string; defaultOrder: SortOrder }[] = [
+    { value: 'rating', label: 'Rating', defaultOrder: 'desc' },
+    { value: 'name', label: 'Name', defaultOrder: 'asc' },
+    { value: 'premiered', label: 'First Aired', defaultOrder: 'desc' },
+    { value: 'updated', label: 'Recently Updated', defaultOrder: 'desc' }
+  ];
 
   let { data }: { data: PageData } = $props();
 
@@ -30,10 +50,15 @@
   const hasMore = $derived(allShows.length < data.total);
   const currentFilter = $derived<FilterConfig>(data.currentFilter || { include: {}, exclude: {} });
   const sonarrTvdbMap = $derived(data.sonarrTvdbMap || {});
+  const currentSort = $derived<SortOption>(data.currentSort || 'rating');
+  const currentSortOrder = $derived<SortOrder>(data.currentSortOrder || 'desc');
+  const currentSortLabel = $derived(
+    sortOptions.find((o) => o.value === currentSort)?.label || 'Rating'
+  );
 
   // Create a signature from the data to detect changes
   const dataSignature = $derived(
-    `${data.currentSearch || ''}-${JSON.stringify(data.currentFilter || {})}-${data.total}`
+    `${data.currentSearch || ''}-${JSON.stringify(data.currentFilter || {})}-${data.total}-${data.currentSort}-${data.currentSortOrder}`
   );
 
   // Track last signature to detect changes
@@ -84,6 +109,12 @@
       }
       if (data.currentFilter) {
         params.set('filter', JSON.stringify(data.currentFilter));
+      }
+      if (data.currentSort) {
+        params.set('sort', data.currentSort);
+      }
+      if (data.currentSortOrder) {
+        params.set('order', data.currentSortOrder);
       }
 
       const response = await fetch(`/api/shows?${params}`);
@@ -164,6 +195,23 @@
     url.searchParams.set('filter', '{}');
     goto(url.toString(), { invalidateAll: true });
   }
+
+  function handleSort(sortBy: SortOption) {
+    const url = new URL($page.url);
+    const option = sortOptions.find((o) => o.value === sortBy);
+
+    // If clicking the same sort, toggle the order
+    if (sortBy === currentSort) {
+      const newOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      url.searchParams.set('order', newOrder);
+    } else {
+      // New sort field - use its default order
+      url.searchParams.set('sort', sortBy);
+      url.searchParams.set('order', option?.defaultOrder || 'desc');
+    }
+
+    goto(url.toString(), { invalidateAll: true });
+  }
 </script>
 
 <div class="container mx-auto px-4 py-6 space-y-6">
@@ -206,6 +254,40 @@
       </div>
       <Button type="submit" variant="secondary">Search</Button>
     </form>
+
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger>
+        {#snippet child({ props })}
+          <Button {...props} variant="outline" class="gap-2">
+            <ArrowUpDown class="w-4 h-4" />
+            <span class="hidden sm:inline">Sort:</span>
+            {currentSortLabel}
+            {#if currentSortOrder === 'asc'}
+              <span class="text-xs">↑</span>
+            {:else}
+              <span class="text-xs">↓</span>
+            {/if}
+          </Button>
+        {/snippet}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Content align="end">
+        {#each sortOptions as option (option.value)}
+          <DropdownMenu.Item class="gap-2 cursor-pointer" onclick={() => handleSort(option.value)}>
+            {#if currentSort === option.value}
+              <Check class="w-4 h-4" />
+            {:else}
+              <span class="w-4"></span>
+            {/if}
+            {option.label}
+            {#if currentSort === option.value}
+              <span class="ml-auto text-xs text-muted-foreground">
+                {currentSortOrder === 'asc' ? '↑ Asc' : '↓ Desc'}
+              </span>
+            {/if}
+          </DropdownMenu.Item>
+        {/each}
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
 
     <Sheet.Root bind:open={filterOpen}>
       <Sheet.Trigger>

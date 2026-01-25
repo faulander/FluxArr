@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2025-01-25
+
+### Added
+
+- **Sort Shows**
+  - New sort dropdown button next to filters on the Discover/Shows page
+  - Sort options: Rating (default), Name, First Aired, Recently Updated
+  - Click the same sort option to toggle between ascending and descending order
+  - Sort preference persists in URL for sharing and bookmarking
+  - Sorting works with infinite scroll pagination
+
 ## [0.3.1] - 2025-01-24
 
 ### Added
