@@ -145,13 +145,7 @@ function logShowChange(
   );
 }
 
-function detectAndLogChanges(show: TVMazeShow, existing: ExistingShow | undefined): void {
-  if (!existing) {
-    // New show
-    logShowChange(show.id, 'new', null, null, show.name);
-    return;
-  }
-
+function detectAndLogChanges(show: TVMazeShow, existing: ExistingShow): void {
   // Check for status change
   if (existing.status !== show.status) {
     const changeType = show.status === 'Ended' ? 'ended' : 'status_change';
@@ -194,14 +188,22 @@ function detectAndLogChanges(show: TVMazeShow, existing: ExistingShow | undefine
 }
 
 function saveShow(show: TVMazeShow, trackChanges: boolean = false): void {
-  // Optionally detect changes before saving
+  let existing: ExistingShow | undefined;
+  let isNewShow = false;
+
+  // Check if show exists before saving (for change tracking)
   if (trackChanges) {
-    const existing = query.get<ExistingShow>(
+    existing = query.get<ExistingShow>(
       `SELECT id, name, status, rating_average, premiered, ended, network_name, web_channel_name, genres
        FROM shows WHERE id = ?`,
       [show.id]
     );
-    detectAndLogChanges(show, existing);
+    isNewShow = !existing;
+
+    // For existing shows, log changes before saving
+    if (existing) {
+      detectAndLogChanges(show, existing);
+    }
   }
 
   query.run(
@@ -278,6 +280,12 @@ function saveShow(show: TVMazeShow, trackChanges: boolean = false): void {
       show.updated
     ]
   );
+
+  // For new shows, log the "new" change AFTER the show has been saved
+  // This avoids the foreign key constraint error
+  if (trackChanges && isNewShow) {
+    logShowChange(show.id, 'new', null, null, show.name);
+  }
 }
 
 function savePerson(person: TVMazePerson): void {
