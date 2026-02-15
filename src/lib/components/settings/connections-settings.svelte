@@ -22,6 +22,7 @@
   interface OMDBConfig {
     configured: boolean;
     enabled: boolean;
+    premium: boolean;
     apiKeyMasked: string | null;
   }
 
@@ -52,6 +53,7 @@
   let omdbConfig = $state<OMDBConfig>({ ...initialOmdbConfig });
   let omdbDialogOpen = $state(false);
   let omdbApiKey = $state('');
+  let omdbPremium = $state(initialOmdbConfig.premium);
   let isOmdbTesting = $state(false);
   let omdbTestResult = $state<{ success: boolean; error?: string } | null>(null);
   let isOmdbSaving = $state(false);
@@ -217,7 +219,7 @@
       const response = await fetch('/api/omdb', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: omdbApiKey, enabled: true })
+        body: JSON.stringify({ apiKey: omdbApiKey, enabled: true, premium: omdbPremium })
       });
 
       const result = await response.json();
@@ -230,6 +232,7 @@
       omdbConfig = {
         configured: true,
         enabled: true,
+        premium: omdbPremium,
         apiKeyMasked: `${omdbApiKey.slice(0, 4)}${'*'.repeat(4)}`
       };
 
@@ -257,7 +260,7 @@
         return;
       }
 
-      omdbConfig = { configured: false, enabled: false, apiKeyMasked: null };
+      omdbConfig = { configured: false, enabled: false, premium: false, apiKeyMasked: null };
       toast.success('OMDB disabled');
     } catch {
       toast.error('Failed to disable OMDB');
@@ -447,7 +450,14 @@
             </Card.Title>
             <Card.Description>Connect to OMDB API to fetch IMDB ratings for shows</Card.Description>
           </div>
-          <Dialog.Root bind:open={omdbDialogOpen}>
+          <Dialog.Root
+            bind:open={omdbDialogOpen}
+            onOpenChange={(open) => {
+              if (open) {
+                omdbPremium = omdbConfig.premium;
+              }
+            }}
+          >
             <Dialog.Trigger>
               {#snippet child({ props })}
                 <Button {...props} size="sm" class="gap-2">
@@ -484,9 +494,26 @@
                     placeholder="Your OMDB API key"
                     bind:value={omdbApiKey}
                   />
-                  <p class="text-xs text-muted-foreground">
-                    Free tier allows 1,000 requests per day
-                  </p>
+                </div>
+
+                <div class="space-y-2">
+                  <Label>API Plan</Label>
+                  <div class="flex gap-2">
+                    <Button
+                      variant={omdbPremium ? 'outline' : 'default'}
+                      size="sm"
+                      onclick={() => (omdbPremium = false)}
+                    >
+                      Free (100/day)
+                    </Button>
+                    <Button
+                      variant={omdbPremium ? 'default' : 'outline'}
+                      size="sm"
+                      onclick={() => (omdbPremium = true)}
+                    >
+                      Premium (100k/day)
+                    </Button>
+                  </div>
                 </div>
 
                 {#if omdbTestResult}
@@ -543,6 +570,9 @@
                   <span class="font-medium">OMDB API</span>
                   <Badge variant={omdbConfig.enabled ? 'default' : 'secondary'} class="text-xs">
                     {omdbConfig.enabled ? 'Active' : 'Disabled'}
+                  </Badge>
+                  <Badge variant="outline" class="text-xs">
+                    {omdbConfig.premium ? 'Premium' : 'Free'}
                   </Badge>
                 </div>
                 <p class="text-sm text-muted-foreground">

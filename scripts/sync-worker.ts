@@ -240,6 +240,7 @@ function updateSyncStatus(
 interface OMDBConfig {
   api_key: string;
   enabled: number;
+  premium: number;
 }
 
 interface OMDBResponse {
@@ -250,7 +251,7 @@ interface OMDBResponse {
 
 function getOMDBConfig(): OMDBConfig | null {
   return db
-    .prepare('SELECT api_key, enabled FROM omdb_config WHERE id = 1')
+    .prepare('SELECT api_key, enabled, premium FROM omdb_config WHERE id = 1')
     .get() as OMDBConfig | null;
 }
 
@@ -272,7 +273,7 @@ async function fetchIMDBRating(imdbId: string, apiKey: string): Promise<number |
 /**
  * Smart IMDB ratings sync with priority-based updates
  *
- * Always uses up to the daily limit (1000 requests). Priority determines ORDER:
+ * Always uses up to the batch limit. Priority determines ORDER:
  * 1. Shows with no rating yet (never fetched)
  * 2. Running/In Development shows (sorted by staleness)
  * 3. Recently ended shows within 2 years (sorted by staleness)
@@ -380,8 +381,8 @@ async function syncIMDBRatings(
       setSyncing(true, { current: i + 1, total: shows.length, phase: 'imdb' });
     }
 
-    // Rate limiting: OMDB free tier is 1000/day, add 100ms delay
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Rate limiting: small delay to avoid hammering the API
+    await new Promise((resolve) => setTimeout(resolve, config.premium ? 10 : 100));
   }
 
   console.log(`IMDB ratings sync complete. Updated: ${updated}, Errors: ${errors}`);
@@ -486,9 +487,15 @@ async function main(): Promise<void> {
       process.exit(1);
     }
 
+    // Determine batch size based on OMDB plan
+    const omdbConfig = getOMDBConfig();
+    const isPremium = omdbConfig?.premium === 1;
+    const imdbOnlyBatch = isPremium ? 5000 : 500;
+    const imdbSyncBatch = isPremium ? 1000 : 100;
+
     if (imdbOnly) {
       // Only sync IMDB ratings
-      await syncIMDBRatings(500);
+      await syncIMDBRatings(imdbOnlyBatch);
     } else {
       // TVMaze sync
       if (forceFullSync || !status?.last_full_sync) {
@@ -497,8 +504,8 @@ async function main(): Promise<void> {
         await incrementalSync();
       }
 
-      // Sync IMDB ratings after TVMaze sync (100 per run to stay within rate limits)
-      await syncIMDBRatings(100);
+      // Sync IMDB ratings after TVMaze sync
+      await syncIMDBRatings(imdbSyncBatch);
     }
   } catch (error) {
     console.error('Sync failed:', error);

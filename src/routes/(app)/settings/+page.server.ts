@@ -24,11 +24,12 @@ export const load: PageServerLoad = async ({ locals }) => {
     ? {
         configured: true,
         enabled: omdbConfigRaw.enabled === 1,
+        premium: omdbConfigRaw.premium === 1,
         apiKeyMasked: omdbConfigRaw.api_key
           ? `${omdbConfigRaw.api_key.slice(0, 4)}${'*'.repeat(4)}`
           : null
       }
-    : { configured: false, enabled: false, apiKeyMasked: null };
+    : { configured: false, enabled: false, premium: false, apiKeyMasked: null };
 
   return {
     sonarrConfigs: safeConfigs,

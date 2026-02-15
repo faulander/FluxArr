@@ -16,28 +16,40 @@ interface OMDBConfig {
   id: number;
   api_key: string;
   enabled: number;
+  premium: number;
   created_at: string;
   updated_at: string;
 }
+
+// Daily request limits per plan
+const OMDB_FREE_DAILY_LIMIT = 100;
+const OMDB_PREMIUM_DAILY_LIMIT = 100_000;
 
 export function getOMDBConfig(): OMDBConfig | null {
   return query.get<OMDBConfig>(`SELECT * FROM omdb_config WHERE id = 1`) || null;
 }
 
-export function saveOMDBConfig(apiKey: string, enabled: boolean): void {
+export function saveOMDBConfig(apiKey: string, enabled: boolean, premium: boolean = false): void {
   const existing = getOMDBConfig();
 
   if (existing) {
     query.run(
-      `UPDATE omdb_config SET api_key = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1`,
-      [apiKey, enabled ? 1 : 0]
+      `UPDATE omdb_config SET api_key = ?, enabled = ?, premium = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1`,
+      [apiKey, enabled ? 1 : 0, premium ? 1 : 0]
     );
   } else {
-    query.run(`INSERT INTO omdb_config (id, api_key, enabled) VALUES (1, ?, ?)`, [
+    query.run(`INSERT INTO omdb_config (id, api_key, enabled, premium) VALUES (1, ?, ?, ?)`, [
       apiKey,
-      enabled ? 1 : 0
+      enabled ? 1 : 0,
+      premium ? 1 : 0
     ]);
   }
+}
+
+export function getOMDBDailyLimit(): number {
+  const config = getOMDBConfig();
+  if (!config) return OMDB_FREE_DAILY_LIMIT;
+  return config.premium ? OMDB_PREMIUM_DAILY_LIMIT : OMDB_FREE_DAILY_LIMIT;
 }
 
 export function isOMDBEnabled(): boolean {
@@ -144,8 +156,8 @@ export async function syncIMDBRatings(
       errors++;
     }
 
-    // Rate limiting: OMDB free tier allows 1000 requests/day
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Rate limiting: small delay to avoid hammering the API
+    await new Promise((resolve) => setTimeout(resolve, config.premium ? 10 : 100));
   }
 
   return { updated, errors };

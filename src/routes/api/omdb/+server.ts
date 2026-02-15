@@ -17,6 +17,7 @@ export const GET: RequestHandler = async ({ locals }) => {
   return json({
     configured: true,
     enabled: config.enabled === 1,
+    premium: config.premium === 1,
     // Mask API key for security
     apiKeyMasked: config.api_key ? `${config.api_key.slice(0, 4)}${'*'.repeat(4)}` : null
   });
@@ -28,13 +29,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ error: 'Admin access required' }, { status: 403 });
   }
 
-  const { apiKey, enabled } = await request.json();
+  const { apiKey, enabled, premium } = await request.json();
 
   if (!apiKey || typeof apiKey !== 'string') {
     return json({ error: 'API key is required' }, { status: 400 });
   }
 
-  saveOMDBConfig(apiKey, enabled ?? true);
+  saveOMDBConfig(apiKey, enabled ?? true, premium ?? false);
 
   return json({ success: true });
 };
