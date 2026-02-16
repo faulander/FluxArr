@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import {
     Tv,
+    Film,
     Filter,
     Settings,
     Users,
@@ -56,7 +57,8 @@
   }
 
   const navItems = [
-    { href: '/shows', label: 'Discover', icon: Tv },
+    { href: '/shows', label: 'Shows', icon: Tv },
+    { href: '/movies', label: 'Movies', icon: Film },
     { href: '/requests', label: 'Requests', icon: ListChecks },
     { href: '/changes', label: 'Changes', icon: History },
     { href: '/filters', label: 'Filters', icon: Filter },

@@ -4,5 +4,5 @@
 // - MINOR: backwards compatible functionality additions
 // - PATCH: backwards compatible bug fixes
 
-export const VERSION = '0.4.1';
-export const VERSION_NAME = 'Radarr Integration';
+export const VERSION = '0.4.2';
+export const VERSION_NAME = 'Movie Pages';

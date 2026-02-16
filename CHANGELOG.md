@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-02-16
+
+### Added
+
+- **Movie Browse Page** - Phase 3 of movie integration
+  - New "Movies" navigation item with Film icon
+  - Movies grid page with search, sort (TMDB Rating, IMDB Rating, Title, Release Date, Popularity, Updated), and infinite scroll
+  - Movie card component with TMDB poster images, ratings (IMDB + TMDB), status badges, and Radarr quick-add
+  - Movie detail page with hero section, poster, tagline, genre badges, overview, and production info
+  - Radarr integration on movie detail: status banner showing which instances have the movie, "Send to Radarr" dialog with instance/quality profile/root folder selection
+  - External links to IMDb and TMDB from movie detail page
+  - Budget and revenue display with formatted currency
+  - TMDB attribution on movie pages (required by TMDB Terms of Service)
+  - API routes: `/api/movies` (paginated query with search/sort/filter), `/api/movies/options` (filter options)
+
+### Changed
+
+- Renamed "Discover" navigation item to "Shows"
+- Renamed "Discover Shows" page title to "Shows"
+- Renamed "Back to Discover" link on show detail page to "Back to Shows"
+
 ## [0.4.1] - 2026-02-16
 
 ### Added
@@ -210,7 +231,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shadcn-svelte UI components
 - Docker support with health checks
 
-[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/yourusername/fluxarr/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/yourusername/fluxarr/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/yourusername/fluxarr/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/yourusername/fluxarr/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/yourusername/fluxarr/compare/v0.3.2...v0.3.3
