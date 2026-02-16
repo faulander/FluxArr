@@ -1,4 +1,5 @@
 import { syncAllSonarrLibraries } from './sonarr';
+import { syncAllRadarrLibraries } from './radarr';
 import { runIncrementalSync } from './tvmaze-sync';
 import { runMovieIncrementalSync } from './tmdb-sync';
 import { isTMDBEnabled } from './tmdb';
@@ -96,6 +97,20 @@ const jobs: JobDefinition[] = [
       logger.tmdb.info(`Sync complete: ${result.updated} updated, ${result.total} total movies`, {
         updated: result.updated,
         total: result.total
+      });
+    }
+  },
+  {
+    id: 'radarr-sync',
+    name: 'Radarr Library Sync',
+    description: 'Synchronizes library data from all configured Radarr instances',
+    defaultInterval: 5,
+    run: async () => {
+      const results = await syncAllRadarrLibraries();
+      const total = results.reduce((sum, r) => sum + r.count, 0);
+      logger.radarr.info(`Sync complete: ${results.length} configs, ${total} total movies`, {
+        configs: results.length,
+        totalMovies: total
       });
     }
   }

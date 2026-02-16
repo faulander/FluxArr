@@ -4,6 +4,7 @@
     Server,
     Film,
     Clapperboard,
+    Radar,
     Plus,
     Trash2,
     Check,
@@ -30,6 +31,16 @@
     isShared: boolean;
   }
 
+  interface RadarrConfig {
+    id: number;
+    user_id: number | null;
+    name: string;
+    url: string;
+    is_default: number;
+    created_at: string;
+    isShared: boolean;
+  }
+
   interface OMDBConfig {
     configured: boolean;
     enabled: boolean;
@@ -45,6 +56,7 @@
 
   interface Props {
     sonarrConfigs: SonarrConfig[];
+    radarrConfigs: RadarrConfig[];
     omdbConfig: OMDBConfig;
     tmdbConfig: TMDBConfig;
     isAdmin: boolean;
@@ -52,6 +64,7 @@
 
   let {
     sonarrConfigs: initialSonarrConfigs,
+    radarrConfigs: initialRadarrConfigs,
     omdbConfig: initialOmdbConfig,
     tmdbConfig: initialTmdbConfig,
     isAdmin
@@ -67,6 +80,17 @@
   );
   let isSonarrSaving = $state(false);
   let deletingSonarrId = $state<number | null>(null);
+
+  // Radarr state
+  let radarrConfigs = $state<RadarrConfig[]>([...initialRadarrConfigs]);
+  let addRadarrDialogOpen = $state(false);
+  let newRadarrConfig = $state({ name: '', url: '', apiKey: '', isDefault: false, shared: false });
+  let isRadarrTesting = $state(false);
+  let radarrTestResult = $state<{ success: boolean; version?: string; error?: string } | null>(
+    null
+  );
+  let isRadarrSaving = $state(false);
+  let deletingRadarrId = $state<number | null>(null);
 
   // OMDB state
   let omdbConfig = $state<OMDBConfig>({ ...initialOmdbConfig });
@@ -192,6 +216,123 @@
       }
 
       sonarrConfigs = sonarrConfigs.map((c) => ({
+        ...c,
+        is_default: c.id === id ? 1 : 0
+      }));
+
+      toast.success('Default updated');
+    } catch {
+      toast.error('Failed to set default');
+    }
+  }
+
+  // Radarr functions
+  async function testRadarrConnection() {
+    if (!newRadarrConfig.url || !newRadarrConfig.apiKey) {
+      toast.error('Please enter URL and API key');
+      return;
+    }
+
+    isRadarrTesting = true;
+    radarrTestResult = null;
+
+    try {
+      const response = await fetch('/api/radarr/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: newRadarrConfig.url, apiKey: newRadarrConfig.apiKey })
+      });
+
+      radarrTestResult = await response.json();
+
+      if (radarrTestResult?.success) {
+        toast.success(`Connected to Radarr v${radarrTestResult.version}`);
+      } else {
+        toast.error(radarrTestResult?.error || 'Connection failed');
+      }
+    } catch {
+      radarrTestResult = { success: false, error: 'Failed to test connection' };
+      toast.error('Failed to test connection');
+    } finally {
+      isRadarrTesting = false;
+    }
+  }
+
+  async function saveRadarrConfig() {
+    if (!newRadarrConfig.name || !newRadarrConfig.url || !newRadarrConfig.apiKey) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    isRadarrSaving = true;
+
+    try {
+      const response = await fetch('/api/radarr/configs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRadarrConfig)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error || 'Failed to save configuration');
+        return;
+      }
+
+      radarrConfigs = [
+        ...radarrConfigs.map((c) => (newRadarrConfig.isDefault ? { ...c, is_default: 0 } : c)),
+        { ...result.config, isShared: newRadarrConfig.shared }
+      ];
+
+      toast.success('Radarr configuration saved');
+      addRadarrDialogOpen = false;
+      newRadarrConfig = { name: '', url: '', apiKey: '', isDefault: false, shared: false };
+      radarrTestResult = null;
+    } catch {
+      toast.error('Failed to save configuration');
+    } finally {
+      isRadarrSaving = false;
+    }
+  }
+
+  async function deleteRadarrConfig(id: number) {
+    deletingRadarrId = id;
+
+    try {
+      const response = await fetch(`/api/radarr/configs?id=${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        toast.error(result.error || 'Failed to delete configuration');
+        return;
+      }
+
+      radarrConfigs = radarrConfigs.filter((c) => c.id !== id);
+      toast.success('Configuration deleted');
+    } catch {
+      toast.error('Failed to delete configuration');
+    } finally {
+      deletingRadarrId = null;
+    }
+  }
+
+  async function setRadarrDefault(id: number) {
+    try {
+      const response = await fetch('/api/radarr/configs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, isDefault: true })
+      });
+
+      if (!response.ok) {
+        toast.error('Failed to set default');
+        return;
+      }
+
+      radarrConfigs = radarrConfigs.map((c) => ({
         ...c,
         is_default: c.id === id ? 1 : 0
       }));
@@ -543,6 +684,176 @@
                   disabled={deletingSonarrId === config.id}
                 >
                   {#if deletingSonarrId === config.id}
+                    <Loader2 class="w-4 h-4 animate-spin" />
+                  {:else}
+                    <Trash2 class="w-4 h-4" />
+                  {/if}
+                </Button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </Card.Content>
+  </Card.Root>
+
+  <!-- Radarr Section -->
+  <Card.Root>
+    <Card.Header>
+      <div class="flex items-center justify-between">
+        <div>
+          <Card.Title class="flex items-center gap-2">
+            <Radar class="w-5 h-5" />
+            Radarr
+          </Card.Title>
+          <Card.Description
+            >Connect Radarr instances to send movies for downloading</Card.Description
+          >
+        </div>
+        <Dialog.Root bind:open={addRadarrDialogOpen}>
+          <Dialog.Trigger>
+            {#snippet child({ props })}
+              <Button {...props} size="sm" class="gap-2">
+                <Plus class="w-4 h-4" />
+                Add
+              </Button>
+            {/snippet}
+          </Dialog.Trigger>
+          <Dialog.Content>
+            <Dialog.Header>
+              <Dialog.Title>Add Radarr Instance</Dialog.Title>
+              <Dialog.Description>
+                Connect a Radarr instance to send movies for automatic downloading.
+              </Dialog.Description>
+            </Dialog.Header>
+
+            <div class="space-y-4 py-4">
+              <div class="space-y-2">
+                <Label for="radarr-name">Name</Label>
+                <Input id="radarr-name" placeholder="My Radarr" bind:value={newRadarrConfig.name} />
+              </div>
+
+              <div class="space-y-2">
+                <Label for="radarr-url">URL</Label>
+                <Input
+                  id="radarr-url"
+                  placeholder="http://localhost:7878"
+                  bind:value={newRadarrConfig.url}
+                />
+              </div>
+
+              <div class="space-y-2">
+                <Label for="radarr-apiKey">API Key</Label>
+                <Input
+                  id="radarr-apiKey"
+                  type="password"
+                  placeholder="Your Radarr API key"
+                  bind:value={newRadarrConfig.apiKey}
+                />
+                <p class="text-xs text-muted-foreground">
+                  Find this in Radarr under Settings → General → Security
+                </p>
+              </div>
+
+              <div class="flex items-center gap-4">
+                <label class="flex items-center gap-2 text-sm">
+                  <input type="checkbox" bind:checked={newRadarrConfig.isDefault} class="rounded" />
+                  Set as default
+                </label>
+
+                {#if isAdmin}
+                  <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" bind:checked={newRadarrConfig.shared} class="rounded" />
+                    Shared (all users)
+                  </label>
+                {/if}
+              </div>
+
+              {#if radarrTestResult}
+                <div
+                  class="flex items-center gap-2 p-3 rounded-md text-sm {radarrTestResult.success
+                    ? 'bg-green-500/10 text-green-600'
+                    : 'bg-red-500/10 text-red-600'}"
+                >
+                  {#if radarrTestResult.success}
+                    <Check class="w-4 h-4" />
+                    Connected to Radarr v{radarrTestResult.version}
+                  {:else}
+                    <X class="w-4 h-4" />
+                    {radarrTestResult.error}
+                  {/if}
+                </div>
+              {/if}
+            </div>
+
+            <Dialog.Footer class="gap-2">
+              <Button variant="outline" onclick={testRadarrConnection} disabled={isRadarrTesting}>
+                {#if isRadarrTesting}
+                  <Loader2 class="w-4 h-4 mr-2 animate-spin" />
+                {/if}
+                Test Connection
+              </Button>
+              <Button
+                onclick={saveRadarrConfig}
+                disabled={isRadarrSaving || !radarrTestResult?.success}
+              >
+                {#if isRadarrSaving}
+                  <Loader2 class="w-4 h-4 mr-2 animate-spin" />
+                {/if}
+                Save
+              </Button>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Root>
+      </div>
+    </Card.Header>
+    <Card.Content>
+      {#if radarrConfigs.length === 0}
+        <div class="text-center py-6 text-muted-foreground">
+          <Radar class="w-10 h-10 mx-auto mb-2 opacity-50" />
+          <p class="text-sm">No Radarr instances configured</p>
+          <p class="text-xs mt-1">Add one to start sending movies</p>
+        </div>
+      {:else}
+        <div class="space-y-3">
+          {#each radarrConfigs as config (config.id)}
+            <div class="flex items-center justify-between p-3 rounded-lg border bg-card">
+              <div class="flex items-center gap-3">
+                <Radar class="w-5 h-5 text-muted-foreground" />
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium">{config.name}</span>
+                    {#if config.is_default}
+                      <Badge variant="secondary" class="text-xs">
+                        <Star class="w-3 h-3 mr-1" />
+                        Default
+                      </Badge>
+                    {/if}
+                    {#if config.isShared}
+                      <Badge variant="outline" class="text-xs">
+                        <Users class="w-3 h-3 mr-1" />
+                        Shared
+                      </Badge>
+                    {/if}
+                  </div>
+                  <p class="text-sm text-muted-foreground">{config.url}</p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                {#if !config.is_default}
+                  <Button variant="ghost" size="sm" onclick={() => setRadarrDefault(config.id)}>
+                    Set Default
+                  </Button>
+                {/if}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="text-destructive hover:text-destructive"
+                  onclick={() => deleteRadarrConfig(config.id)}
+                  disabled={deletingRadarrId === config.id}
+                >
+                  {#if deletingRadarrId === config.id}
                     <Loader2 class="w-4 h-4 animate-spin" />
                   {:else}
                     <Trash2 class="w-4 h-4" />

@@ -43,6 +43,7 @@
       {:else if activeSection === 'connections'}
         <ConnectionsSettings
           sonarrConfigs={data.sonarrConfigs}
+          radarrConfigs={data.radarrConfigs}
           omdbConfig={data.omdbConfig}
           tmdbConfig={data.tmdbConfig}
           {isAdmin}

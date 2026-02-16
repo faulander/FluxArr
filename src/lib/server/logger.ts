@@ -135,6 +135,7 @@ export const logger = {
   sonarr: createLogger('Sonarr'),
   omdb: createLogger('OMDB'),
   tmdb: createLogger('TMDB'),
+  radarr: createLogger('Radarr'),
   db: createLogger('Database'),
   auth: createLogger('Auth')
 };

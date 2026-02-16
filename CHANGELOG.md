@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-02-16
+
+### Added
+
+- **Radarr Integration** - Phase 2 of movie integration
+  - Radarr API client (v3 API) with test connection, quality profiles, root folders, movie lookup, and add movie
+  - Radarr config management: add/edit/delete instances per user, set default, shared configs for admins
+  - Radarr library sync: caches all movies from connected Radarr instances with TMDB ID mapping
+  - Radarr library sync background job (default: every 5 minutes)
+  - Movie request tracking: tracks movies added to Radarr with status (pending/added/downloading/completed/failed)
+  - Radarr section in Settings > Connections with add dialog, test connection, and instance management
+  - API routes: `/api/radarr/configs` (CRUD), `/api/radarr/test`, `/api/radarr/add`
+  - Radarr logger for monitoring sync operations in Settings > Logs
+
 ## [0.4.0] - 2026-02-16
 
 ### Added
