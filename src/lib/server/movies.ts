@@ -74,7 +74,8 @@ export function getMovies(options: MoviesQueryOptions = {}): MoviesQueryResult {
         params.push(inc.ratingMax);
       }
 
-      if (inc.includeUnrated) {
+      // Default to including unrated unless explicitly set to false
+      if (inc.includeUnrated !== false) {
         ratingConditions.push('vote_average IS NULL');
       }
 
@@ -98,7 +99,8 @@ export function getMovies(options: MoviesQueryOptions = {}): MoviesQueryResult {
         params.push(inc.imdbRatingMax);
       }
 
-      if (inc.includeImdbUnrated) {
+      // Default to including unrated unless explicitly set to false
+      if (inc.includeImdbUnrated !== false) {
         imdbConditions.push('imdb_rating IS NULL');
       }
 
@@ -226,9 +228,9 @@ export function getMovieFilterOptions(): {
   countries: string[];
 } {
   const languages = query
-    .all<{ language: string }>(
-      'SELECT DISTINCT language FROM movies WHERE language IS NOT NULL ORDER BY language'
-    )
+    .all<{
+      language: string;
+    }>('SELECT DISTINCT language FROM movies WHERE language IS NOT NULL ORDER BY language')
     .map((r) => r.language);
 
   // Genres are stored as JSON arrays
@@ -247,9 +249,9 @@ export function getMovieFilterOptions(): {
   const genres = Array.from(genreSet).sort();
 
   const status = query
-    .all<{ status: string }>(
-      'SELECT DISTINCT status FROM movies WHERE status IS NOT NULL ORDER BY status'
-    )
+    .all<{
+      status: string;
+    }>('SELECT DISTINCT status FROM movies WHERE status IS NOT NULL ORDER BY status')
     .map((r) => r.status);
 
   // Countries from production_countries JSON arrays
