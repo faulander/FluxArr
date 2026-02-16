@@ -4,5 +4,5 @@
 // - MINOR: backwards compatible functionality additions
 // - PATCH: backwards compatible bug fixes
 
-export const VERSION = '0.4.2';
-export const VERSION_NAME = 'Movie Pages';
+export const VERSION = '0.4.3';
+export const VERSION_NAME = 'Movie Polish';

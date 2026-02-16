@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { toast } from 'svelte-sonner';
-  import { Filter, Plus, Trash2, Star, Pencil, Play, Loader2 } from '@lucide/svelte';
+  import { Filter, Plus, Trash2, Star, Pencil, Play, Loader2, Tv, Film } from '@lucide/svelte';
   import * as Card from '$lib/components/ui/card';
   import * as Dialog from '$lib/components/ui/dialog';
   import * as AlertDialog from '$lib/components/ui/alert-dialog';
@@ -11,12 +11,18 @@
   import { Badge } from '$lib/components/ui/badge';
   import { Separator } from '$lib/components/ui/separator';
   import FilterPanel from '$lib/components/filter-panel.svelte';
+  import MovieFilterPanel from '$lib/components/movie-filter-panel.svelte';
   import type { PageData } from './$types';
-  import type { FilterConfig, SavedFilter } from '$lib/types/filter';
+  import type { FilterConfig, MovieFilterConfig, SavedFilter } from '$lib/types/filter';
 
   let { data }: { data: PageData } = $props();
 
   let filters = $state<SavedFilter[]>(data.filters);
+
+  // Content type toggle
+  let activeTab = $state<'show' | 'movie'>('show');
+
+  let filteredFilters = $derived(filters.filter((f) => (f.content_type || 'show') === activeTab));
 
   // Dialog state
   let createDialogOpen = $state(false);
@@ -25,7 +31,8 @@
 
   // Form state
   let filterName = $state('');
-  let filterConfig = $state<FilterConfig>({ include: {}, exclude: {} });
+  let showFilterConfig = $state<FilterConfig>({ include: {}, exclude: {} });
+  let movieFilterConfig = $state<MovieFilterConfig>({ include: {}, exclude: {} });
   let isDefault = $state(false);
   let isSaving = $state(false);
   let editingFilter = $state<SavedFilter | null>(null);
@@ -33,7 +40,8 @@
 
   function resetForm() {
     filterName = '';
-    filterConfig = { include: {}, exclude: {} };
+    showFilterConfig = { include: {}, exclude: {} };
+    movieFilterConfig = { include: {}, exclude: {} };
     isDefault = false;
     editingFilter = null;
   }
@@ -41,7 +49,12 @@
   function openEditDialog(filter: SavedFilter) {
     editingFilter = filter;
     filterName = filter.name;
-    filterConfig = JSON.parse(filter.config);
+    const config = JSON.parse(filter.config);
+    if ((filter.content_type || 'show') === 'movie') {
+      movieFilterConfig = config;
+    } else {
+      showFilterConfig = config;
+    }
     isDefault = filter.is_default === 1;
     editDialogOpen = true;
   }
@@ -59,14 +72,17 @@
 
     isSaving = true;
 
+    const config = activeTab === 'movie' ? movieFilterConfig : showFilterConfig;
+
     try {
       const response = await fetch('/api/filters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: filterName.trim(),
-          config: filterConfig,
-          isDefault
+          config,
+          isDefault,
+          contentType: activeTab
         })
       });
 
@@ -79,14 +95,16 @@
 
       // Update local state
       if (isDefault) {
-        filters = filters.map((f) => ({ ...f, is_default: 0 }));
+        filters = filters.map((f) =>
+          (f.content_type || 'show') === activeTab ? { ...f, is_default: 0 } : f
+        );
       }
       filters = [...filters, result.filter];
 
       toast.success('Filter created');
       createDialogOpen = false;
       resetForm();
-    } catch (error) {
+    } catch {
       toast.error('Failed to create filter');
     } finally {
       isSaving = false;
@@ -102,13 +120,16 @@
 
     isSaving = true;
 
+    const contentType = editingFilter.content_type || 'show';
+    const config = contentType === 'movie' ? movieFilterConfig : showFilterConfig;
+
     try {
       const response = await fetch(`/api/filters/${editingFilter.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: filterName.trim(),
-          config: filterConfig,
+          config,
           isDefault
         })
       });
@@ -122,14 +143,18 @@
 
       // Update local state
       if (isDefault) {
-        filters = filters.map((f) => ({ ...f, is_default: f.id === editingFilter!.id ? 1 : 0 }));
+        filters = filters.map((f) =>
+          (f.content_type || 'show') === contentType
+            ? { ...f, is_default: f.id === editingFilter!.id ? 1 : 0 }
+            : f
+        );
       }
       filters = filters.map((f) => (f.id === editingFilter!.id ? result.filter : f));
 
       toast.success('Filter updated');
       editDialogOpen = false;
       resetForm();
-    } catch (error) {
+    } catch {
       toast.error('Failed to update filter');
     } finally {
       isSaving = false;
@@ -154,7 +179,7 @@
       toast.success('Filter deleted');
       deleteDialogOpen = false;
       deletingFilter = null;
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete filter');
     }
   }
@@ -172,9 +197,14 @@
         return;
       }
 
-      filters = filters.map((f) => ({ ...f, is_default: f.id === filter.id ? 1 : 0 }));
+      const contentType = filter.content_type || 'show';
+      filters = filters.map((f) =>
+        (f.content_type || 'show') === contentType
+          ? { ...f, is_default: f.id === filter.id ? 1 : 0 }
+          : f
+      );
       toast.success('Default filter updated');
-    } catch (error) {
+    } catch {
       toast.error('Failed to set default filter');
     }
   }
@@ -183,11 +213,12 @@
     const config = JSON.parse(filter.config);
     const params = new URLSearchParams();
     params.set('filter', JSON.stringify(config));
-    goto(`/shows?${params.toString()}`);
+    const contentType = filter.content_type || 'show';
+    goto(`/${contentType === 'movie' ? 'movies' : 'shows'}?${params.toString()}`);
   }
 
   function getFilterSummary(filter: SavedFilter): string[] {
-    const config = JSON.parse(filter.config) as FilterConfig;
+    const config = JSON.parse(filter.config);
     const parts: string[] = [];
 
     if (config.include.languages?.length) {
@@ -202,14 +233,23 @@
     if (config.include.status?.length) {
       parts.push(`Status: ${config.include.status.join(', ')}`);
     }
+    if (config.include.countries?.length) {
+      parts.push(`Countries: ${config.include.countries.join(', ')}`);
+    }
     if (config.include.ratingMin !== undefined) {
       parts.push(`Rating: ${config.include.ratingMin}+`);
     }
-    if (config.include.premieredAfter) {
-      parts.push(`After: ${config.include.premieredAfter}`);
+    if (config.include.imdbRatingMin !== undefined) {
+      parts.push(`IMDB: ${config.include.imdbRatingMin}+`);
     }
-    if (config.include.premieredBefore) {
-      parts.push(`Before: ${config.include.premieredBefore}`);
+    if (config.include.premieredAfter || config.include.releasedAfter) {
+      parts.push(`After: ${config.include.premieredAfter || config.include.releasedAfter}`);
+    }
+    if (config.include.premieredBefore || config.include.releasedBefore) {
+      parts.push(`Before: ${config.include.premieredBefore || config.include.releasedBefore}`);
+    }
+    if (config.include.runtimeMin !== undefined) {
+      parts.push(`Runtime: ${config.include.runtimeMin}+ min`);
     }
 
     return parts.length > 0 ? parts : ['No filters configured'];
@@ -222,7 +262,6 @@
       <h1 class="text-2xl font-bold">Saved Filters</h1>
       <p class="text-muted-foreground text-sm">Create and manage your filter presets</p>
     </div>
-    <!-- Create Filter Dialog with Trigger -->
     <Dialog.Root
       bind:open={createDialogOpen}
       onOpenChange={(open) => {
@@ -239,7 +278,7 @@
       </Dialog.Trigger>
       <Dialog.Content class="max-w-2xl max-h-[90vh] overflow-y-auto">
         <Dialog.Header>
-          <Dialog.Title>Create New Filter</Dialog.Title>
+          <Dialog.Title>Create New {activeTab === 'movie' ? 'Movie' : 'Show'} Filter</Dialog.Title>
           <Dialog.Description>
             Configure your filter settings and save them for quick access.
           </Dialog.Description>
@@ -253,14 +292,25 @@
 
           <Separator />
 
-          <FilterPanel
-            options={data.filterOptions}
-            filter={filterConfig}
-            onApply={(config) => (filterConfig = config)}
-            onClear={() => (filterConfig = { include: {}, exclude: {} })}
-            showButtons={false}
-            autoApply={true}
-          />
+          {#if activeTab === 'movie'}
+            <MovieFilterPanel
+              options={data.movieFilterOptions}
+              filter={movieFilterConfig}
+              onApply={(config) => (movieFilterConfig = config)}
+              onClear={() => (movieFilterConfig = { include: {}, exclude: {} })}
+              showButtons={false}
+              autoApply={true}
+            />
+          {:else}
+            <FilterPanel
+              options={data.filterOptions}
+              filter={showFilterConfig}
+              onApply={(config) => (showFilterConfig = config)}
+              onClear={() => (showFilterConfig = { include: {}, exclude: {} })}
+              showButtons={false}
+              autoApply={true}
+            />
+          {/if}
         </div>
 
         <Dialog.Footer>
@@ -278,11 +328,35 @@
     </Dialog.Root>
   </div>
 
-  {#if filters.length === 0}
+  <!-- Tab Toggle -->
+  <div class="flex gap-1 p-1 bg-muted rounded-lg w-fit">
+    <button
+      class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors {activeTab ===
+      'show'
+        ? 'bg-background shadow-sm'
+        : 'text-muted-foreground hover:text-foreground'}"
+      onclick={() => (activeTab = 'show')}
+    >
+      <Tv class="w-4 h-4" />
+      Shows
+    </button>
+    <button
+      class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors {activeTab ===
+      'movie'
+        ? 'bg-background shadow-sm'
+        : 'text-muted-foreground hover:text-foreground'}"
+      onclick={() => (activeTab = 'movie')}
+    >
+      <Film class="w-4 h-4" />
+      Movies
+    </button>
+  </div>
+
+  {#if filteredFilters.length === 0}
     <Card.Root>
       <Card.Content class="py-12 text-center">
         <Filter class="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-        <h3 class="text-lg font-medium">No saved filters yet</h3>
+        <h3 class="text-lg font-medium">No saved {activeTab} filters yet</h3>
         <p class="text-muted-foreground text-sm mt-1">
           Create filter presets to quickly apply your favorite filter combinations.
         </p>
@@ -294,7 +368,7 @@
     </Card.Root>
   {:else}
     <div class="grid gap-4">
-      {#each filters as filter (filter.id)}
+      {#each filteredFilters as filter (filter.id)}
         <Card.Root>
           <Card.Content class="p-4">
             <div class="flex items-start justify-between gap-4">
@@ -360,14 +434,25 @@
 
       <Separator />
 
-      <FilterPanel
-        options={data.filterOptions}
-        filter={filterConfig}
-        onApply={(config) => (filterConfig = config)}
-        onClear={() => (filterConfig = { include: {}, exclude: {} })}
-        showButtons={false}
-        autoApply={true}
-      />
+      {#if editingFilter && (editingFilter.content_type || 'show') === 'movie'}
+        <MovieFilterPanel
+          options={data.movieFilterOptions}
+          filter={movieFilterConfig}
+          onApply={(config) => (movieFilterConfig = config)}
+          onClear={() => (movieFilterConfig = { include: {}, exclude: {} })}
+          showButtons={false}
+          autoApply={true}
+        />
+      {:else}
+        <FilterPanel
+          options={data.filterOptions}
+          filter={showFilterConfig}
+          onApply={(config) => (showFilterConfig = config)}
+          onClear={() => (showFilterConfig = { include: {}, exclude: {} })}
+          showButtons={false}
+          autoApply={true}
+        />
+      {/if}
     </div>
 
     <Dialog.Footer>

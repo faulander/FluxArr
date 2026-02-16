@@ -9,10 +9,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const filter = query.get<SavedFilter>(
-    `SELECT * FROM filters WHERE id = ? AND user_id = ?`,
-    [params.id, locals.user.id]
-  );
+  const filter = query.get<SavedFilter>(`SELECT * FROM filters WHERE id = ? AND user_id = ?`, [
+    params.id,
+    locals.user.id
+  ]);
 
   if (!filter) {
     return json({ error: 'Filter not found' }, { status: 404 });
@@ -27,10 +27,10 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const existing = query.get<SavedFilter>(
-    `SELECT * FROM filters WHERE id = ? AND user_id = ?`,
-    [params.id, locals.user.id]
-  );
+  const existing = query.get<SavedFilter>(`SELECT * FROM filters WHERE id = ? AND user_id = ?`, [
+    params.id,
+    locals.user.id
+  ]);
 
   if (!existing) {
     return json({ error: 'Filter not found' }, { status: 404 });
@@ -52,9 +52,12 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
   }
 
   if (isDefault !== undefined) {
-    // If setting as default, unset other defaults first
+    // If setting as default, unset other defaults for the same content_type first
     if (isDefault) {
-      query.run(`UPDATE filters SET is_default = 0 WHERE user_id = ?`, [locals.user.id]);
+      query.run(`UPDATE filters SET is_default = 0 WHERE user_id = ? AND content_type = ?`, [
+        locals.user.id,
+        existing.content_type || 'show'
+      ]);
     }
     updates.push('is_default = ?');
     values.push(isDefault ? 1 : 0);
@@ -77,10 +80,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const existing = query.get<SavedFilter>(
-    `SELECT * FROM filters WHERE id = ? AND user_id = ?`,
-    [params.id, locals.user.id]
-  );
+  const existing = query.get<SavedFilter>(`SELECT * FROM filters WHERE id = ? AND user_id = ?`, [
+    params.id,
+    locals.user.id
+  ]);
 
   if (!existing) {
     return json({ error: 'Filter not found' }, { status: 404 });

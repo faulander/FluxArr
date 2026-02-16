@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-02-16
+
+### Added
+
+- **Movie Filter Panel** - Dedicated filter panel for movies with language, genre, status, country, TMDB/IMDB rating, release date, and runtime filters
+- **Saved Filters: Movie Support** - Filters page now has a Shows/Movies tab toggle; saved filters are scoped by content type with separate defaults
+- **Movie Requests** - Requests page now has a Shows/Movies tab toggle showing Radarr request status (Downloaded, Monitored, Pending, Failed) with poster thumbnails
+
+### Changed
+
+- Saved filters now store a `content_type` column (`show` or `movie`) to separate show and movie filter presets
+- Default filter logic is now scoped per content type (show default and movie default are independent)
+- Requests API accepts `type` parameter (`show` or `movie`) to fetch the correct request type
+
 ## [0.4.2] - 2026-02-16
 
 ### Added
@@ -231,7 +245,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shadcn-svelte UI components
 - Docker support with health checks
 
-[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/yourusername/fluxarr/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/yourusername/fluxarr/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/yourusername/fluxarr/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/yourusername/fluxarr/compare/v0.3.4...v0.4.0

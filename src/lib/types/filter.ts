@@ -40,7 +40,8 @@ export interface SavedFilter {
   id: number;
   user_id: number;
   name: string;
-  config: string; // JSON string of FilterConfig
+  config: string; // JSON string of FilterConfig or MovieFilterConfig
+  content_type: 'show' | 'movie';
   is_default: number;
   created_at: string;
   updated_at: string;
