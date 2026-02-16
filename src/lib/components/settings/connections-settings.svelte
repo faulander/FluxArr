@@ -1,6 +1,17 @@
 <script lang="ts">
   import { toast } from 'svelte-sonner';
-  import { Server, Film, Plus, Trash2, Check, X, Loader2, Star, Users } from '@lucide/svelte';
+  import {
+    Server,
+    Film,
+    Clapperboard,
+    Plus,
+    Trash2,
+    Check,
+    X,
+    Loader2,
+    Star,
+    Users
+  } from '@lucide/svelte';
   import * as Card from '$lib/components/ui/card';
   import * as Dialog from '$lib/components/ui/dialog';
   import { Button } from '$lib/components/ui/button';
@@ -26,15 +37,23 @@
     apiKeyMasked: string | null;
   }
 
+  interface TMDBConfig {
+    configured: boolean;
+    enabled: boolean;
+    apiKeyMasked: string | null;
+  }
+
   interface Props {
     sonarrConfigs: SonarrConfig[];
     omdbConfig: OMDBConfig;
+    tmdbConfig: TMDBConfig;
     isAdmin: boolean;
   }
 
   let {
     sonarrConfigs: initialSonarrConfigs,
     omdbConfig: initialOmdbConfig,
+    tmdbConfig: initialTmdbConfig,
     isAdmin
   }: Props = $props();
 
@@ -57,6 +76,14 @@
   let isOmdbTesting = $state(false);
   let omdbTestResult = $state<{ success: boolean; error?: string } | null>(null);
   let isOmdbSaving = $state(false);
+
+  // TMDB state
+  let tmdbConfig = $state<TMDBConfig>({ ...initialTmdbConfig });
+  let tmdbDialogOpen = $state(false);
+  let tmdbApiKey = $state('');
+  let isTmdbTesting = $state(false);
+  let tmdbTestResult = $state<{ success: boolean; error?: string } | null>(null);
+  let isTmdbSaving = $state(false);
 
   // Sonarr functions
   async function testSonarrConnection() {
@@ -264,6 +291,97 @@
       toast.success('OMDB disabled');
     } catch {
       toast.error('Failed to disable OMDB');
+    }
+  }
+
+  // TMDB functions
+  async function testTmdbConnection() {
+    if (!tmdbApiKey) {
+      toast.error('Please enter an API key');
+      return;
+    }
+
+    isTmdbTesting = true;
+    tmdbTestResult = null;
+
+    try {
+      const response = await fetch('/api/tmdb/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: tmdbApiKey })
+      });
+
+      tmdbTestResult = await response.json();
+
+      if (tmdbTestResult?.success) {
+        toast.success('TMDB API connection successful');
+      } else {
+        toast.error(tmdbTestResult?.error || 'Connection failed');
+      }
+    } catch {
+      tmdbTestResult = { success: false, error: 'Failed to test connection' };
+      toast.error('Failed to test connection');
+    } finally {
+      isTmdbTesting = false;
+    }
+  }
+
+  async function saveTmdbConfig() {
+    if (!tmdbApiKey) {
+      toast.error('Please enter an API key');
+      return;
+    }
+
+    isTmdbSaving = true;
+
+    try {
+      const response = await fetch('/api/tmdb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: tmdbApiKey, enabled: true })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error || 'Failed to save configuration');
+        return;
+      }
+
+      tmdbConfig = {
+        configured: true,
+        enabled: true,
+        apiKeyMasked: `${tmdbApiKey.slice(0, 4)}${'*'.repeat(4)}`
+      };
+
+      toast.success('TMDB configuration saved. Movies will sync during next background job run.');
+      tmdbDialogOpen = false;
+      tmdbApiKey = '';
+      tmdbTestResult = null;
+    } catch {
+      toast.error('Failed to save configuration');
+    } finally {
+      isTmdbSaving = false;
+    }
+  }
+
+  async function disableTmdb() {
+    try {
+      const response = await fetch('/api/tmdb', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: '', enabled: false })
+      });
+
+      if (!response.ok) {
+        toast.error('Failed to disable TMDB');
+        return;
+      }
+
+      tmdbConfig = { configured: false, enabled: false, apiKeyMasked: null };
+      toast.success('TMDB disabled');
+    } catch {
+      toast.error('Failed to disable TMDB');
     }
   }
 </script>
@@ -586,6 +704,131 @@
               size="icon"
               class="text-destructive hover:text-destructive"
               onclick={disableOmdb}
+            >
+              <Trash2 class="w-4 h-4" />
+            </Button>
+          </div>
+        {/if}
+      </Card.Content>
+    </Card.Root>
+
+    <!-- TMDB Section (Admin only) -->
+    <Card.Root>
+      <Card.Header>
+        <div class="flex items-center justify-between">
+          <div>
+            <Card.Title class="flex items-center gap-2">
+              <Clapperboard class="w-5 h-5" />
+              TMDB (Movie Database)
+            </Card.Title>
+            <Card.Description>Connect to TMDB API to populate the movie database</Card.Description>
+          </div>
+          <Dialog.Root bind:open={tmdbDialogOpen}>
+            <Dialog.Trigger>
+              {#snippet child({ props })}
+                <Button {...props} size="sm" class="gap-2">
+                  {#if tmdbConfig.configured}
+                    Update
+                  {:else}
+                    <Plus class="w-4 h-4" />
+                    Configure
+                  {/if}
+                </Button>
+              {/snippet}
+            </Dialog.Trigger>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>Configure TMDB API</Dialog.Title>
+                <Dialog.Description>
+                  Enter your TMDB API key to populate the movie database. Get a free key at{' '}
+                  <a
+                    href="https://www.themoviedb.org/settings/api"
+                    target="_blank"
+                    class="text-primary underline"
+                  >
+                    themoviedb.org
+                  </a>
+                </Dialog.Description>
+              </Dialog.Header>
+
+              <div class="space-y-4 py-4">
+                <div class="space-y-2">
+                  <Label for="tmdb-apiKey">API Key (v3 auth)</Label>
+                  <Input
+                    id="tmdb-apiKey"
+                    type="password"
+                    placeholder="Your TMDB API key"
+                    bind:value={tmdbApiKey}
+                  />
+                </div>
+
+                {#if tmdbTestResult}
+                  <div
+                    class="flex items-center gap-2 p-3 rounded-md text-sm {tmdbTestResult.success
+                      ? 'bg-green-500/10 text-green-600'
+                      : 'bg-red-500/10 text-red-600'}"
+                  >
+                    {#if tmdbTestResult.success}
+                      <Check class="w-4 h-4" />
+                      API key is valid
+                    {:else}
+                      <X class="w-4 h-4" />
+                      {tmdbTestResult.error}
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+
+              <Dialog.Footer class="gap-2">
+                <Button variant="outline" onclick={testTmdbConnection} disabled={isTmdbTesting}>
+                  {#if isTmdbTesting}
+                    <Loader2 class="w-4 h-4 mr-2 animate-spin" />
+                  {/if}
+                  Test Connection
+                </Button>
+                <Button
+                  onclick={saveTmdbConfig}
+                  disabled={isTmdbSaving || !tmdbTestResult?.success}
+                >
+                  {#if isTmdbSaving}
+                    <Loader2 class="w-4 h-4 mr-2 animate-spin" />
+                  {/if}
+                  Save
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Root>
+        </div>
+      </Card.Header>
+      <Card.Content>
+        {#if !tmdbConfig.configured}
+          <div class="text-center py-6 text-muted-foreground">
+            <Clapperboard class="w-10 h-10 mx-auto mb-2 opacity-50" />
+            <p class="text-sm">TMDB not configured</p>
+            <p class="text-xs mt-1">Add an API key to populate the movie database</p>
+          </div>
+        {:else}
+          <div class="flex items-center justify-between p-3 rounded-lg border bg-card">
+            <div class="flex items-center gap-3">
+              <Clapperboard class="w-5 h-5 text-muted-foreground" />
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-medium">TMDB API</span>
+                  <Badge variant={tmdbConfig.enabled ? 'default' : 'secondary'} class="text-xs">
+                    {tmdbConfig.enabled ? 'Active' : 'Disabled'}
+                  </Badge>
+                </div>
+                <p class="text-sm text-muted-foreground">
+                  API Key: {tmdbConfig.apiKeyMasked}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              class="text-destructive hover:text-destructive"
+              onclick={disableTmdb}
             >
               <Trash2 class="w-4 h-4" />
             </Button>

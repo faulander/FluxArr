@@ -201,18 +201,93 @@ export async function syncIMDBRatings(
 
     // Log progress every 500 shows
     if ((i + 1) % 500 === 0) {
-      logger.omdb.info(`Progress: ${i + 1}/${shows.length} (${updated} updated, ${errors} errors)`);
+      logger.omdb.info(
+        `Shows progress: ${i + 1}/${shows.length} (${updated} updated, ${errors} errors)`
+      );
     }
 
     // Rate limiting: small delay to avoid hammering the API
     await new Promise((resolve) => setTimeout(resolve, config.premium ? 10 : 100));
   }
 
-  logger.omdb.info(`IMDB ratings sync complete`, {
+  logger.omdb.info(`Shows IMDB ratings sync complete`, {
     updated,
     errors,
     total: shows.length
   });
 
-  return { updated, errors, total: shows.length };
+  // --- Movies IMDB ratings sync ---
+  // Use remaining budget for movies (same priority logic)
+  const movieLimit = Math.max(0, limit - shows.length);
+  let movieUpdated = 0;
+  let movieErrors = 0;
+
+  if (movieLimit > 0) {
+    const movies = query.all<{ id: number; imdb_id: string; title: string; priority: number }>(
+      `SELECT id, imdb_id, title,
+        CASE
+          WHEN imdb_rating IS NULL THEN 1
+          WHEN status = 'Released' AND release_date IS NOT NULL AND release_date >= date('now', '-2 years') THEN 2
+          WHEN status IN ('Post Production', 'In Production', 'Planned') THEN 3
+          ELSE 4
+        END as priority
+      FROM movies
+      WHERE imdb_id IS NOT NULL
+        AND imdb_id != ''
+      ORDER BY
+        priority ASC,
+        imdb_rating_updated_at ASC NULLS FIRST
+      LIMIT ?`,
+      [movieLimit]
+    );
+
+    if (movies.length > 0) {
+      logger.omdb.info(`Starting IMDB ratings sync for ${movies.length} movies`);
+
+      for (let i = 0; i < movies.length; i++) {
+        const movie = movies[i];
+        const rating = await fetchIMDBRating(movie.imdb_id, config.api_key);
+
+        if (rating !== null) {
+          query.run(
+            `UPDATE movies SET imdb_rating = ?, imdb_rating_updated_at = datetime('now') WHERE id = ?`,
+            [rating, movie.id]
+          );
+          movieUpdated++;
+        } else {
+          query.run(`UPDATE movies SET imdb_rating_updated_at = datetime('now') WHERE id = ?`, [
+            movie.id
+          ]);
+          movieErrors++;
+        }
+
+        if ((i + 1) % 500 === 0) {
+          logger.omdb.info(
+            `Movies progress: ${i + 1}/${movies.length} (${movieUpdated} updated, ${movieErrors} errors)`
+          );
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, config.premium ? 10 : 100));
+      }
+
+      logger.omdb.info(`Movies IMDB ratings sync complete`, {
+        updated: movieUpdated,
+        errors: movieErrors,
+        total: movies.length
+      });
+    }
+  }
+
+  const totalUpdated = updated + movieUpdated;
+  const totalErrors = errors + movieErrors;
+  const totalProcessed = shows.length + movieUpdated + movieErrors;
+
+  logger.omdb.info(`IMDB ratings sync complete (all)`, {
+    showsUpdated: updated,
+    moviesUpdated: movieUpdated,
+    totalUpdated,
+    totalErrors
+  });
+
+  return { updated: totalUpdated, errors: totalErrors, total: totalProcessed };
 }

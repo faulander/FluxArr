@@ -1,5 +1,7 @@
 import { syncAllSonarrLibraries } from './sonarr';
 import { runIncrementalSync } from './tvmaze-sync';
+import { runMovieIncrementalSync } from './tmdb-sync';
+import { isTMDBEnabled } from './tmdb';
 import { syncIMDBRatings, calculateBatchSize, isOMDBEnabled } from './omdb';
 import { query } from './db';
 import { logger } from './logger';
@@ -77,6 +79,24 @@ const jobs: JobDefinition[] = [
         `Sync complete: ${result.updated} updated, ${result.errors} errors out of ${result.total}`,
         { updated: result.updated, errors: result.errors, total: result.total, batchSize }
       );
+    }
+  },
+  {
+    id: 'tmdb-sync',
+    name: 'TMDB Movie Sync',
+    description:
+      'Syncs movie data from TMDB (seeds on first run, then incremental updates every 6 hours)',
+    defaultInterval: 360,
+    run: async () => {
+      if (!isTMDBEnabled()) {
+        logger.tmdb.info('TMDB not configured or disabled, skipping');
+        return;
+      }
+      const result = await runMovieIncrementalSync();
+      logger.tmdb.info(`Sync complete: ${result.updated} updated, ${result.total} total movies`, {
+        updated: result.updated,
+        total: result.total
+      });
     }
   }
 ];

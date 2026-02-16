@@ -134,6 +134,7 @@ export const logger = {
   tvmaze: createLogger('TVMaze'),
   sonarr: createLogger('Sonarr'),
   omdb: createLogger('OMDB'),
+  tmdb: createLogger('TMDB'),
   db: createLogger('Database'),
   auth: createLogger('Auth')
 };

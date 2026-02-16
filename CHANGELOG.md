@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-16
+
+### Added
+
+- **Movie Database Foundation** - Phase 1 of movie integration
+  - New `movies` table with TMDB as primary data source (~20,000-50,000 movies seeded on first sync)
+  - Full-text search (FTS5) on movie titles and overviews
+  - TMDB API client with rate limiting, discover, popular, top-rated, search, and changes endpoints
+  - TMDB sync background job: seeds on first run, then incremental updates every 6 hours
+  - TMDB API key configuration in Settings > Connections (admin only) with test button
+  - Movie query layer with filter support: language, genre, status, country, TMDB rating, IMDB rating, release date, runtime
+  - Movie-specific filter types with sort options: title, TMDB rating, IMDB rating, release date, popularity, updated
+  - TMDB logger for monitoring sync operations in Settings > Logs
+
+### Changed
+
+- OMDB IMDB ratings sync now also fetches ratings for movies (uses remaining budget after shows)
+
 ## [0.3.4] - 2026-02-16
 
 ### Added
@@ -178,7 +196,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shadcn-svelte UI components
 - Docker support with health checks
 
-[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/yourusername/fluxarr/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/yourusername/fluxarr/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/yourusername/fluxarr/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/yourusername/fluxarr/compare/v0.3.1...v0.3.2

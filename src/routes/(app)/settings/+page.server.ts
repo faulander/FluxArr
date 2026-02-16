@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { getUserSonarrConfigs } from '$lib/server/sonarr';
 import { getOMDBConfig } from '$lib/server/omdb';
+import { getTMDBConfig } from '$lib/server/tmdb';
 import { getUserSettings } from '$lib/server/user-settings';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -31,9 +32,22 @@ export const load: PageServerLoad = async ({ locals }) => {
       }
     : { configured: false, enabled: false, premium: false, apiKeyMasked: null };
 
+  // Get TMDB config (mask API key)
+  const tmdbConfigRaw = getTMDBConfig();
+  const tmdbConfig = tmdbConfigRaw
+    ? {
+        configured: true,
+        enabled: tmdbConfigRaw.enabled === 1,
+        apiKeyMasked: tmdbConfigRaw.api_key
+          ? `${tmdbConfigRaw.api_key.slice(0, 4)}${'*'.repeat(4)}`
+          : null
+      }
+    : { configured: false, enabled: false, apiKeyMasked: null };
+
   return {
     sonarrConfigs: safeConfigs,
     omdbConfig,
+    tmdbConfig,
     userSettings: userSettings
       ? {
           primaryColorLight: userSettings.primary_color_light,

@@ -44,6 +44,7 @@
         <ConnectionsSettings
           sonarrConfigs={data.sonarrConfigs}
           omdbConfig={data.omdbConfig}
+          tmdbConfig={data.tmdbConfig}
           {isAdmin}
         />
       {:else if activeSection === 'jobs'}

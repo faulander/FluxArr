@@ -64,3 +64,43 @@ export const defaultFilterConfig: FilterConfig = {
   sortBy: 'rating',
   sortOrder: 'desc'
 };
+
+// Movie-specific filter types
+export interface MovieFilterInclude {
+  languages?: string[];
+  genres?: string[];
+  status?: string[];
+  countries?: string[];
+  ratingMin?: number; // TMDB vote_average
+  ratingMax?: number;
+  includeUnrated?: boolean;
+  imdbRatingMin?: number;
+  imdbRatingMax?: number;
+  includeImdbUnrated?: boolean;
+  releasedAfter?: string;
+  releasedBefore?: string;
+  runtimeMin?: number;
+  runtimeMax?: number;
+}
+
+export interface MovieFilterExclude {
+  languages?: string[];
+  genres?: string[];
+  status?: string[];
+  countries?: string[];
+}
+
+export interface MovieFilterConfig {
+  include: MovieFilterInclude;
+  exclude: MovieFilterExclude;
+  search?: string;
+  sortBy?: 'title' | 'vote_average' | 'imdb_rating' | 'release_date' | 'popularity' | 'updated';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export const defaultMovieFilterConfig: MovieFilterConfig = {
+  include: {},
+  exclude: {},
+  sortBy: 'popularity',
+  sortOrder: 'desc'
+};
