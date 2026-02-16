@@ -9,6 +9,9 @@ export interface FilterInclude {
   ratingMin?: number;
   ratingMax?: number;
   includeUnrated?: boolean;
+  imdbRatingMin?: number;
+  imdbRatingMax?: number;
+  includeImdbUnrated?: boolean;
   premieredAfter?: string;
   premieredBefore?: string;
   runtimeMin?: number;
@@ -29,7 +32,7 @@ export interface FilterConfig {
   include: FilterInclude;
   exclude: FilterExclude;
   search?: string;
-  sortBy?: 'name' | 'rating' | 'premiered' | 'updated';
+  sortBy?: 'name' | 'rating' | 'imdb_rating' | 'premiered' | 'updated';
   sortOrder?: 'asc' | 'desc';
 }
 

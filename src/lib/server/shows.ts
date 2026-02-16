@@ -102,6 +102,29 @@ export function getShows(options: ShowsQueryOptions = {}): ShowsQueryResult {
       // Shows with and without ratings will be included
     }
 
+    if (inc.imdbRatingMin !== undefined || inc.imdbRatingMax !== undefined) {
+      const imdbConditions: string[] = [];
+
+      if (inc.imdbRatingMin !== undefined && inc.imdbRatingMax !== undefined) {
+        imdbConditions.push(`(imdb_rating >= ? AND imdb_rating <= ?)`);
+        params.push(inc.imdbRatingMin, inc.imdbRatingMax);
+      } else if (inc.imdbRatingMin !== undefined) {
+        imdbConditions.push(`imdb_rating >= ?`);
+        params.push(inc.imdbRatingMin);
+      } else if (inc.imdbRatingMax !== undefined) {
+        imdbConditions.push(`imdb_rating <= ?`);
+        params.push(inc.imdbRatingMax);
+      }
+
+      if (inc.includeImdbUnrated) {
+        imdbConditions.push(`imdb_rating IS NULL`);
+      }
+
+      if (imdbConditions.length > 0) {
+        conditions.push(`(${imdbConditions.join(' OR ')})`);
+      }
+    }
+
     if (inc.premieredAfter) {
       conditions.push(`premiered >= ?`);
       params.push(inc.premieredAfter);
@@ -193,6 +216,9 @@ export function getShows(options: ShowsQueryOptions = {}): ShowsQueryResult {
         break;
       case 'rating':
         orderBy = `rating_average ${direction} ${nulls}`;
+        break;
+      case 'imdb_rating':
+        orderBy = `imdb_rating ${direction} ${nulls}`;
         break;
       case 'premiered':
         orderBy = `premiered ${direction} ${nulls}`;

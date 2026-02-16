@@ -22,11 +22,12 @@
   import type { FilterConfig } from '$lib/types/filter';
   import type { Show } from '$lib/types';
 
-  type SortOption = 'rating' | 'name' | 'premiered' | 'updated';
+  type SortOption = 'rating' | 'imdb_rating' | 'name' | 'premiered' | 'updated';
   type SortOrder = 'asc' | 'desc';
 
   const sortOptions: { value: SortOption; label: string; defaultOrder: SortOrder }[] = [
-    { value: 'rating', label: 'Rating', defaultOrder: 'desc' },
+    { value: 'rating', label: 'TVMaze Rating', defaultOrder: 'desc' },
+    { value: 'imdb_rating', label: 'IMDB Rating', defaultOrder: 'desc' },
     { value: 'name', label: 'Name', defaultOrder: 'asc' },
     { value: 'premiered', label: 'First Aired', defaultOrder: 'desc' },
     { value: 'updated', label: 'Recently Updated', defaultOrder: 'desc' }
@@ -145,6 +146,7 @@
     if (inc.countries?.length) count++;
     if (inc.types?.length) count++;
     if (inc.ratingMin !== undefined || inc.ratingMax !== undefined) count++;
+    if (inc.imdbRatingMin !== undefined || inc.imdbRatingMax !== undefined) count++;
     if (inc.premieredAfter || inc.premieredBefore) count++;
     if (inc.runtimeMin !== undefined || inc.runtimeMax !== undefined) count++;
 
@@ -352,7 +354,12 @@
       {/if}
       {#if currentFilter.include.ratingMin !== undefined}
         <Badge variant="outline" class="gap-1">
-          Rating: {currentFilter.include.ratingMin}+
+          TVMaze Rating: {currentFilter.include.ratingMin}+
+        </Badge>
+      {/if}
+      {#if currentFilter.include.imdbRatingMin !== undefined}
+        <Badge variant="outline" class="gap-1">
+          IMDB Rating: {currentFilter.include.imdbRatingMin}+
         </Badge>
       {/if}
       <Button variant="ghost" size="sm" onclick={clearFilters} class="h-6 px-2 text-xs">

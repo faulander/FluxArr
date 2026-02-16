@@ -22,8 +22,10 @@ interface SonarrConfigForCard {
   rootFolders: { id: number; path: string }[];
 }
 
-type SortOption = 'rating' | 'name' | 'premiered' | 'updated';
+type SortOption = 'rating' | 'imdb_rating' | 'name' | 'premiered' | 'updated';
 type SortOrder = 'asc' | 'desc';
+
+const VALID_SORTS: SortOption[] = ['rating', 'imdb_rating', 'name', 'premiered', 'updated'];
 
 export const load: PageServerLoad = async ({ url, locals }) => {
   const page = parseInt(url.searchParams.get('page') || '1', 10);
@@ -32,9 +34,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
   // Parse sort from URL
   const sortParam = url.searchParams.get('sort') as SortOption | null;
   const orderParam = url.searchParams.get('order') as SortOrder | null;
-  const currentSort: SortOption = ['rating', 'name', 'premiered', 'updated'].includes(
-    sortParam || ''
-  )
+  const currentSort: SortOption = VALID_SORTS.includes(sortParam as SortOption)
     ? (sortParam as SortOption)
     : 'rating';
   const currentSortOrder: SortOrder = orderParam === 'asc' ? 'asc' : 'desc';

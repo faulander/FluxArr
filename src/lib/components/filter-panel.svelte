@@ -43,6 +43,9 @@
   let ratingMin = $state(filter.include.ratingMin?.toString() || '');
   let ratingMax = $state(filter.include.ratingMax?.toString() || '');
   let includeUnrated = $state(filter.include.includeUnrated ?? false);
+  let imdbRatingMin = $state(filter.include.imdbRatingMin?.toString() || '');
+  let imdbRatingMax = $state(filter.include.imdbRatingMax?.toString() || '');
+  let includeImdbUnrated = $state(filter.include.includeImdbUnrated ?? false);
   let premieredAfter = $state(filter.include.premieredAfter || '');
   let premieredBefore = $state(filter.include.premieredBefore || '');
 
@@ -59,6 +62,9 @@
       ratingMin = filter.include.ratingMin?.toString() || '';
       ratingMax = filter.include.ratingMax?.toString() || '';
       includeUnrated = filter.include.includeUnrated ?? false;
+      imdbRatingMin = filter.include.imdbRatingMin?.toString() || '';
+      imdbRatingMax = filter.include.imdbRatingMax?.toString() || '';
+      includeImdbUnrated = filter.include.includeImdbUnrated ?? false;
       premieredAfter = filter.include.premieredAfter || '';
       premieredBefore = filter.include.premieredBefore || '';
     }
@@ -87,6 +93,21 @@
       }
       if (includeUnrated) {
         finalFilter.include.includeUnrated = true;
+      }
+      if (imdbRatingMin) {
+        const val = parseFloat(imdbRatingMin);
+        if (!isNaN(val) && val >= 0 && val <= 10) {
+          finalFilter.include.imdbRatingMin = val;
+        }
+      }
+      if (imdbRatingMax) {
+        const val = parseFloat(imdbRatingMax);
+        if (!isNaN(val) && val >= 0 && val <= 10) {
+          finalFilter.include.imdbRatingMax = val;
+        }
+      }
+      if (includeImdbUnrated) {
+        finalFilter.include.includeImdbUnrated = true;
       }
       if (premieredAfter) {
         finalFilter.include.premieredAfter = premieredAfter;
@@ -136,6 +157,23 @@
       finalFilter.include.includeUnrated = true;
     }
 
+    // Parse IMDB rating inputs
+    if (imdbRatingMin) {
+      const val = parseFloat(imdbRatingMin);
+      if (!isNaN(val) && val >= 0 && val <= 10) {
+        finalFilter.include.imdbRatingMin = val;
+      }
+    }
+    if (imdbRatingMax) {
+      const val = parseFloat(imdbRatingMax);
+      if (!isNaN(val) && val >= 0 && val <= 10) {
+        finalFilter.include.imdbRatingMax = val;
+      }
+    }
+    if (includeImdbUnrated) {
+      finalFilter.include.includeImdbUnrated = true;
+    }
+
     // Parse premiered date inputs
     if (premieredAfter) {
       finalFilter.include.premieredAfter = premieredAfter;
@@ -167,6 +205,9 @@
     ratingMin = '';
     ratingMax = '';
     includeUnrated = false;
+    imdbRatingMin = '';
+    imdbRatingMax = '';
+    includeImdbUnrated = false;
     premieredAfter = '';
     premieredBefore = '';
     onClear();
@@ -210,9 +251,9 @@
 
   <Separator />
 
-  <!-- Rating -->
+  <!-- TVMaze Rating -->
   <div class="space-y-3">
-    <Label class="text-sm font-medium">Rating</Label>
+    <Label class="text-sm font-medium">TVMaze Rating</Label>
     <div class="flex items-center gap-3">
       <div class="flex-1">
         <Label class="text-xs text-muted-foreground">Min</Label>
@@ -243,6 +284,45 @@
       <Checkbox id="include-unrated" bind:checked={includeUnrated} />
       <Label for="include-unrated" class="text-sm font-normal cursor-pointer">
         Include unrated shows
+      </Label>
+    </div>
+  </div>
+
+  <Separator />
+
+  <!-- IMDB Rating -->
+  <div class="space-y-3">
+    <Label class="text-sm font-medium">IMDB Rating</Label>
+    <div class="flex items-center gap-3">
+      <div class="flex-1">
+        <Label class="text-xs text-muted-foreground">Min</Label>
+        <Input
+          type="number"
+          min="0"
+          max="10"
+          step="0.1"
+          placeholder="0"
+          bind:value={imdbRatingMin}
+          class="mt-1"
+        />
+      </div>
+      <div class="flex-1">
+        <Label class="text-xs text-muted-foreground">Max</Label>
+        <Input
+          type="number"
+          min="0"
+          max="10"
+          step="0.1"
+          placeholder="10"
+          bind:value={imdbRatingMax}
+          class="mt-1"
+        />
+      </div>
+    </div>
+    <div class="flex items-center gap-2 pt-1">
+      <Checkbox id="include-imdb-unrated" bind:checked={includeImdbUnrated} />
+      <Label for="include-imdb-unrated" class="text-sm font-normal cursor-pointer">
+        Include shows without IMDB rating
       </Label>
     </div>
   </div>

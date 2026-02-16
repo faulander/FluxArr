@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { getShows, getFilterOptions, getSyncStatus } from '$lib/server/shows';
 import type { FilterConfig } from '$lib/types/filter';
 
-type SortOption = 'rating' | 'name' | 'premiered' | 'updated';
+type SortOption = 'rating' | 'imdb_rating' | 'name' | 'premiered' | 'updated';
 type SortOrder = 'asc' | 'desc';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -18,7 +18,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   // Parse sort from query params
   const sortParam = url.searchParams.get('sort') as SortOption | null;
   const orderParam = url.searchParams.get('order') as SortOrder | null;
-  const sortBy: SortOption = ['rating', 'name', 'premiered', 'updated'].includes(sortParam || '')
+  const sortBy: SortOption = ['rating', 'imdb_rating', 'name', 'premiered', 'updated'].includes(
+    sortParam || ''
+  )
     ? (sortParam as SortOption)
     : 'rating';
   const sortOrder: SortOrder = orderParam === 'asc' ? 'asc' : 'desc';
