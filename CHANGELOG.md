@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-02-16
+
+### Added
+
+- **OMDB Background Job** - IMDB ratings now sync automatically as a background job (Settings > Jobs)
+  - Configurable interval (default: every 15 minutes)
+  - Batch size auto-calculated from OMDB plan limit and interval to use the full daily quota
+  - Premium plan (100k/day) covers all ~80k shows within the first day
+  - Enable/disable, adjust interval, and trigger manually from the Jobs settings page
+  - OMDB sync logs visible in Settings > Logs under the "OMDB" source
+
+### Changed
+
+- OMDB sync in CLI worker (`npm run sync`) now uses 90% of the daily budget per run instead of a fixed small batch (90k for premium, 90 for free)
+
+### Fixed
+
+- IMDB ratings were not being fetched automatically - the sync only ran via the external CLI script (`npm run sync`), not as part of the app's background job system
+
 ## [0.3.2] - 2025-01-25
 
 ### Added
@@ -151,7 +170,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shadcn-svelte UI components
 - Docker support with health checks
 
-[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/yourusername/fluxarr/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/yourusername/fluxarr/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/yourusername/fluxarr/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/yourusername/fluxarr/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/yourusername/fluxarr/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/yourusername/fluxarr/compare/v0.2.0...v0.2.1

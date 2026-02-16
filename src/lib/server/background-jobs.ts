@@ -1,5 +1,6 @@
 import { syncAllSonarrLibraries } from './sonarr';
 import { runIncrementalSync } from './tvmaze-sync';
+import { syncIMDBRatings, calculateBatchSize, isOMDBEnabled } from './omdb';
 import { query } from './db';
 import { logger } from './logger';
 
@@ -56,6 +57,26 @@ const jobs: JobDefinition[] = [
         updated: result.updated,
         total: result.total
       });
+    }
+  },
+  {
+    id: 'omdb-sync',
+    name: 'OMDB IMDB Ratings Sync',
+    description: 'Fetches IMDB ratings from OMDB API (batch size auto-calculated from plan limit)',
+    defaultInterval: 15,
+    run: async () => {
+      if (!isOMDBEnabled()) {
+        logger.omdb.info('OMDB not configured or disabled, skipping');
+        return;
+      }
+      const config = getJobConfig('omdb-sync');
+      const interval = config?.interval_minutes || 15;
+      const batchSize = calculateBatchSize(interval);
+      const result = await syncIMDBRatings(batchSize);
+      logger.omdb.info(
+        `Sync complete: ${result.updated} updated, ${result.errors} errors out of ${result.total}`,
+        { updated: result.updated, errors: result.errors, total: result.total, batchSize }
+      );
     }
   }
 ];

@@ -2,6 +2,7 @@
 // API documentation: https://www.omdbapi.com/
 
 import { query } from './db';
+import { logger } from './logger';
 
 interface OMDBResponse {
   Response: 'True' | 'False';
@@ -91,6 +92,23 @@ export async function fetchIMDBRating(imdbId: string, apiKey: string): Promise<n
 }
 
 /**
+ * Calculate the optimal batch size for a sync run based on the daily limit
+ * and how many runs per day we expect (based on job interval).
+ */
+export function calculateBatchSize(intervalMinutes: number): number {
+  const config = getOMDBConfig();
+  if (!config) return 0;
+
+  const dailyLimit = config.premium ? OMDB_PREMIUM_DAILY_LIMIT : OMDB_FREE_DAILY_LIMIT;
+  const runsPerDay = Math.floor((24 * 60) / intervalMinutes);
+  // Use 90% of budget to leave headroom for test calls etc.
+  const batchSize = Math.floor((dailyLimit * 0.9) / Math.max(runsPerDay, 1));
+
+  // Clamp: at least 10, at most 10k per run to keep memory reasonable
+  return Math.max(10, Math.min(batchSize, 10_000));
+}
+
+/**
  * Smart IMDB ratings sync with priority-based updates
  *
  * Always uses up to the limit. Priority determines ORDER:
@@ -104,16 +122,17 @@ export async function fetchIMDBRating(imdbId: string, apiKey: string): Promise<n
  */
 export async function syncIMDBRatings(
   limit: number = 100
-): Promise<{ updated: number; errors: number }> {
+): Promise<{ updated: number; errors: number; total: number }> {
   const config = getOMDBConfig();
 
   if (!config || !config.enabled || !config.api_key) {
-    return { updated: 0, errors: 0 };
+    logger.omdb.info('OMDB not configured or disabled, skipping sync');
+    return { updated: 0, errors: 0, total: 0 };
   }
 
-  // Priority-based query - same logic as sync-worker.ts
-  const shows = query.all<{ id: number; imdb_id: string; priority: number }>(
-    `SELECT id, imdb_id,
+  // Priority-based query
+  const shows = query.all<{ id: number; imdb_id: string; name: string; priority: number }>(
+    `SELECT id, imdb_id, name,
       CASE
         -- Priority 1: Never fetched (no rating yet)
         WHEN imdb_rating IS NULL THEN 1
@@ -136,10 +155,34 @@ export async function syncIMDBRatings(
     [limit]
   );
 
+  if (shows.length === 0) {
+    logger.omdb.info('No shows need IMDB rating updates');
+    return { updated: 0, errors: 0, total: 0 };
+  }
+
+  // Log priority breakdown
+  const priorityCounts = shows.reduce(
+    (acc, s) => {
+      acc[s.priority] = (acc[s.priority] || 0) + 1;
+      return acc;
+    },
+    {} as Record<number, number>
+  );
+
+  logger.omdb.info(`Starting IMDB ratings sync for ${shows.length} shows`, {
+    batch: shows.length,
+    new: priorityCounts[1] || 0,
+    running: priorityCounts[2] || 0,
+    recentlyEnded: priorityCounts[3] || 0,
+    olderEnded: priorityCounts[4] || 0,
+    veryOld: priorityCounts[5] || 0
+  });
+
   let updated = 0;
   let errors = 0;
 
-  for (const show of shows) {
+  for (let i = 0; i < shows.length; i++) {
+    const show = shows[i];
     const rating = await fetchIMDBRating(show.imdb_id, config.api_key);
 
     if (rating !== null) {
@@ -156,9 +199,20 @@ export async function syncIMDBRatings(
       errors++;
     }
 
+    // Log progress every 500 shows
+    if ((i + 1) % 500 === 0) {
+      logger.omdb.info(`Progress: ${i + 1}/${shows.length} (${updated} updated, ${errors} errors)`);
+    }
+
     // Rate limiting: small delay to avoid hammering the API
     await new Promise((resolve) => setTimeout(resolve, config.premium ? 10 : 100));
   }
 
-  return { updated, errors };
+  logger.omdb.info(`IMDB ratings sync complete`, {
+    updated,
+    errors,
+    total: shows.length
+  });
+
+  return { updated, errors, total: shows.length };
 }

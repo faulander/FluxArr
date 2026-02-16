@@ -488,10 +488,11 @@ async function main(): Promise<void> {
     }
 
     // Determine batch size based on OMDB plan
+    // Use most of the daily budget since the worker typically runs once per day
     const omdbConfig = getOMDBConfig();
     const isPremium = omdbConfig?.premium === 1;
-    const imdbOnlyBatch = isPremium ? 5000 : 500;
-    const imdbSyncBatch = isPremium ? 1000 : 100;
+    const imdbOnlyBatch = isPremium ? 90_000 : 90;
+    const imdbSyncBatch = isPremium ? 90_000 : 90;
 
     if (imdbOnly) {
       // Only sync IMDB ratings

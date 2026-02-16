@@ -133,6 +133,7 @@ export const logger = {
   background: createLogger('Background'),
   tvmaze: createLogger('TVMaze'),
   sonarr: createLogger('Sonarr'),
+  omdb: createLogger('OMDB'),
   db: createLogger('Database'),
   auth: createLogger('Auth')
 };

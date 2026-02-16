@@ -31,6 +31,7 @@ FluxArr pulls TV show data from TVMaze and presents it in a beautiful, searchabl
 ### Background Sync
 - Automatic TVMaze data synchronization keeps your library current
 - Incremental updates fetch only what's changed
+- OMDB IMDB ratings sync runs automatically with smart batching
 - Configure sync intervals to your preference
 
 ### Additional Features
@@ -106,13 +107,15 @@ You can add multiple Sonarr instances and set one as the default.
 
 FluxArr can display IMDB ratings alongside TVMaze ratings by connecting to the OMDB API.
 
-1. Get a free API key at [omdbapi.com](https://www.omdbapi.com/apikey.aspx) (1,000 requests/day)
+1. Get an API key at [omdbapi.com](https://www.omdbapi.com/apikey.aspx) (free: 100/day, premium: 100k/day)
 2. Go to **Settings → Connections** (admin only)
 3. Click **Configure** in the OMDB section
-4. Enter your API key and test the connection
-5. Save - IMDB ratings will be fetched during the next sync
+4. Enter your API key, select your plan tier, and test the connection
+5. Save - IMDB ratings will start syncing automatically via the background job
 
-You can also run a dedicated IMDB sync:
+The OMDB background job (visible in **Settings → Jobs**) automatically calculates batch sizes from your plan limit and sync interval to efficiently use your daily quota. With a premium key and the default 15-minute interval, all ~80k shows get rated within the first day.
+
+You can also run a one-off IMDB sync via CLI:
 ```bash
 npm run sync -- --imdb
 ```
