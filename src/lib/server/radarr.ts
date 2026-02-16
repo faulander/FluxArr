@@ -124,7 +124,12 @@ export const radarr = {
   },
 
   async lookupByTmdbId(config: RadarrConfig, tmdbId: number): Promise<RadarrMovie[]> {
-    return radarrFetch(config, `/movie/lookup/tmdb?tmdbId=${tmdbId}`);
+    // Radarr v3 returns a single object for /movie/lookup/tmdb, not an array
+    const result = await radarrFetch<RadarrMovie | RadarrMovie[]>(
+      config,
+      `/movie/lookup/tmdb?tmdbId=${tmdbId}`
+    );
+    return Array.isArray(result) ? result : [result];
   },
 
   async getAllMovies(config: RadarrConfig): Promise<RadarrMovie[]> {
@@ -144,7 +149,14 @@ export const radarr = {
       throw new RadarrError('Movie not found on TMDB');
     }
 
-    const movie = lookupResults[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const movie = lookupResults[0] as any;
+
+    if (!movie || !movie.title || !movie.tmdbId) {
+      throw new RadarrError(
+        `Invalid lookup result for TMDB ID ${options.tmdbId}: missing title or tmdbId`
+      );
+    }
 
     // Check if already exists
     const existing = await this.getMovieByTmdbId(config, options.tmdbId);
